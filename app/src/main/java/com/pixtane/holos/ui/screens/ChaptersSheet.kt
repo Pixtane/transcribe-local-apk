@@ -1,5 +1,6 @@
 package com.pixtane.holos.ui.screens
 
+import com.pixtane.holos.t
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -92,14 +93,14 @@ fun ChaptersSheet(
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = HolosColors.Surface) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
             Text(
-                if (rec.chapters.isEmpty()) "Search" else "Chapters",
+                if (rec.chapters.isEmpty()) t("Search", "Пошук") else t("Chapters", "Розділи"),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = query, onValueChange = { query = it },
-                placeholder = { Text(if (rec.chapters.isEmpty()) "Search the text" else "Search chapters and text") },
+                placeholder = { Text(if (rec.chapters.isEmpty()) t("Search the text", "Пошук у тексті") else t("Search chapters and text", "Пошук розділів і тексту")) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
@@ -150,7 +151,7 @@ fun ChaptersSheet(
                 if (textHits.isNotEmpty()) {
                     item(key = "hdr") {
                         Text(
-                            "IN TEXT · ${textHits.size}${if (textHits.size >= 60) "+" else ""}",
+                            t("IN TEXT", "У ТЕКСТІ") + " · ${textHits.size}${if (textHits.size >= 60) "+" else ""}",
                             style = MaterialTheme.typography.labelMedium, color = HolosColors.Muted,
                             modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp),
                         )
@@ -177,7 +178,7 @@ fun ChaptersSheet(
                     }
                 }
                 if (chapterHits.isEmpty() && textHits.isEmpty() && q.isNotEmpty()) {
-                    item { Text("Nothing found", color = HolosColors.Muted, modifier = Modifier.padding(20.dp)) }
+                    item { Text(t("Nothing found", "Нічого не знайдено"), color = HolosColors.Muted, modifier = Modifier.padding(20.dp)) }
                 }
             }
         }

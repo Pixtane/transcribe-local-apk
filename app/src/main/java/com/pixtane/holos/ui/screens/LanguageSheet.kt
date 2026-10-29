@@ -1,5 +1,7 @@
 package com.pixtane.holos.ui.screens
 
+import com.pixtane.holos.uiName
+import com.pixtane.holos.t
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,16 +54,16 @@ fun LanguageSheet(selected: String, engineChanges: Int, onPick: (Lang) -> Unit, 
     val shown = remember(query) {
         val q = query.trim()
         if (q.isEmpty()) all else all.filter {
-            it.english.contains(q, true) || it.native.contains(q, true) || it.code.equals(q, true)
+            it.english.contains(q, true) || it.native.contains(q, true) || it.uiName().contains(q, true) || it.code.equals(q, true)
         }
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = HolosColors.Surface) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
-            Text("Language", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+            Text(t("Language", "Мова"), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = query, onValueChange = { query = it },
-                placeholder = { Text("Search ${all.size} languages") },
+                placeholder = { Text(t("Search ${all.size} languages", "Пошук серед ${all.size} мов")) },
                 leadingIcon = { Icon(Icons.Rounded.Search, null) },
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
@@ -87,7 +89,7 @@ fun LanguageSheet(selected: String, engineChanges: Int, onPick: (Lang) -> Unit, 
                         Text(l.flag, fontSize = 22.sp, modifier = Modifier.width(40.dp))
                         Column(Modifier.weight(1f)) {
                             Text(l.native, style = MaterialTheme.typography.bodyLarge)
-                            Text(l.english, style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                            Text(l.uiName(), style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
                             Spacer(Modifier.height(4.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 for ((p, ready) in packs) {

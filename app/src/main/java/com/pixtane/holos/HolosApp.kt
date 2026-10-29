@@ -27,8 +27,8 @@ class HolosApp : Application() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_SYNTH, "Voice generation", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Progress while text is being turned into speech"
+            NotificationChannel(CHANNEL_SYNTH, t("Voice generation", "Генерація голосу"), NotificationManager.IMPORTANCE_LOW).apply {
+                description = t("Progress while text is being turned into speech", "Прогрес перетворення тексту на мовлення")
                 setShowBadge(false)
             }
         )

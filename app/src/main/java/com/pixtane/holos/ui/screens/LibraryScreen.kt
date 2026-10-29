@@ -1,5 +1,9 @@
 package com.pixtane.holos.ui.screens
 
+import com.pixtane.holos.uiName
+import com.pixtane.holos.UiLang
+import com.pixtane.holos.chaptersCount
+import com.pixtane.holos.t
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -108,10 +112,10 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 4.dp)) {
                     Column(Modifier.weight(1f)) {
                         Text("Holos", style = MaterialTheme.typography.displaySmall)
-                        Text("Offline AI voice · Українська · Deutsch · English", style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted)
+                        Text(t("Offline AI voice · Українська · Deutsch · English", "Офлайн ШІ-озвучення · понад 30 мов"), style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted)
                     }
                     IconButton(onClick = { nav.push(Screen.Settings) }) {
-                        Icon(Icons.Rounded.Settings, "Settings", tint = HolosColors.Muted)
+                        Icon(Icons.Rounded.Settings, t("Settings", "Налаштування"), tint = HolosColors.Muted)
                     }
                 }
             }
@@ -123,7 +127,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
             } else {
                 item {
                     Text(
-                        "Recordings",
+                        t("Recordings", "Записи"),
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -139,12 +143,12 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                         )
                         DropdownMenu(expanded = menuFor?.id == rec.id, onDismissRequest = { menuFor = null }) {
                             DropdownMenuItem(
-                                text = { Text("Rename") },
+                                text = { Text(t("Rename", "Перейменувати")) },
                                 leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                                 onClick = { renaming = rec; menuFor = null },
                             )
                             DropdownMenuItem(
-                                text = { Text("Delete", color = HolosColors.Danger) },
+                                text = { Text(t("Delete", "Видалити"), color = HolosColors.Danger) },
                                 leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = HolosColors.Danger) },
                                 onClick = { deleting = rec; menuFor = null },
                             )
@@ -164,7 +168,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
             horizontalAlignment = Alignment.End,
         ) {
             GradientButton(
-                "New recording",
+                t("New recording", "Новий запис"),
                 onClick = { nav.push(Screen.Create()) },
                 enabled = anyEngine,
                 leading = { Icon(Icons.Rounded.Add, null, tint = Color.White) },
@@ -177,7 +181,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                 val total = cur.totalMs().coerceAtLeast(1)
                 MiniPlayer(
                     title = cur.title,
-                    subtitle = "${cur.lang.flag} ${cur.lang.native}",
+                    subtitle = "${cur.lang.flag} ${cur.lang.uiName()}",
                     progress = pos.toFloat() / total,
                     playing = snap.playWhenReady,
                     buffering = snap.isBuffering,
@@ -193,28 +197,28 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
         var title by remember(rec.id) { mutableStateOf(rec.title) }
         AlertDialog(
             onDismissRequest = { renaming = null },
-            title = { Text("Rename") },
+            title = { Text(t("Rename", "Перейменувати")) },
             text = { OutlinedTextField(title, { title = it }, singleLine = true) },
             confirmButton = {
-                TextButton(onClick = { RecordingRepository.rename(rec.id, title.ifBlank { rec.title }); renaming = null }) { Text("Save") }
+                TextButton(onClick = { RecordingRepository.rename(rec.id, title.ifBlank { rec.title }); renaming = null }) { Text(t("Save", "Зберегти")) }
             },
-            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text(t("Cancel", "Скасувати")) } },
         )
     }
     deleting?.let { rec ->
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("Delete recording?") },
-            text = { Text("“${rec.title}” and its audio will be removed from this phone.") },
+            title = { Text(t("Delete recording?", "Видалити запис?")) },
+            text = { Text(t("“${rec.title}” and its audio will be removed from this phone.", "«${rec.title}» і його аудіо буде видалено з телефону.")) },
             confirmButton = {
                 TextButton(onClick = {
                     SynthesisManager.cancel(rec.id)
                     if (PlayerBus.snapshot.value.recordingId == rec.id) controller?.clearMediaItems()
                     RecordingRepository.delete(rec.id)
                     deleting = null
-                }) { Text("Delete", color = HolosColors.Danger) }
+                }) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(t("Cancel", "Скасувати")) } },
         )
     }
 }
@@ -232,15 +236,15 @@ private fun EmptyState(onCreate: () -> Unit, enabled: Boolean) {
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Rounded.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(34.dp)) }
             Spacer(Modifier.height(16.dp))
-            Text("Turn any text into speech", style = MaterialTheme.typography.titleLarge)
+            Text(t("Turn any text into speech", "Перетворіть будь-який текст на мовлення"), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(6.dp))
             Text(
-                "Paste an article, a chapter or import a .txt file. Holos reads it aloud with natural voices and highlights every word as it goes.",
+                t("Paste an article or a chapter, or import a PDF, EPUB, MOBI or TXT file. Holos reads it aloud with natural voices and highlights every word as it goes.", "Вставте статтю чи розділ або імпортуйте PDF, EPUB, MOBI чи TXT. Holos прочитає текст природним голосом і підсвічуватиме кожне слово."),
                 style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
             Spacer(Modifier.height(18.dp))
-            GradientButton("Create first recording", onClick = onCreate, enabled = enabled)
+            GradientButton(t("Create first recording", "Створити перший запис"), onClick = onCreate, enabled = enabled)
         }
     }
 }
@@ -276,26 +280,26 @@ private fun RecordingCard(rec: Recording, isCurrent: Boolean, isPlaying: Boolean
                     Text(rec.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = (if (rec.chapters.isNotEmpty()) "${rec.chapters.size} chapters · " else "") + rec.text.take(140).replace('\n', ' '),
+                        text = (if (rec.chapters.isNotEmpty()) "${chaptersCount(rec.chapters.size)} · " else "") + rec.text.take(140).replace('\n', ' '),
                         style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
                         maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                IconButton(onClick = onMenu) { Icon(Icons.Rounded.MoreVert, "More", tint = HolosColors.Muted) }
+                IconButton(onClick = onMenu) { Icon(Icons.Rounded.MoreVert, t("More", "Більше"), tint = HolosColors.Muted) }
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill(rec.lang.native, rec.lang.accent)
+                Pill(rec.lang.uiName(), rec.lang.accent)
                 Pill((if (complete) "" else "~") + formatHuman(totalMs), HolosColors.Violet)
                 when {
-                    complete -> Pill("Ready", HolosColors.Success)
-                    generating -> Pill("Generating ${ready * 100 / rec.n.coerceAtLeast(1)}%", HolosColors.Pink)
-                    rec.id in pausedSet -> Pill("Paused ${ready * 100 / rec.n.coerceAtLeast(1)}%", HolosColors.Muted)
-                    else -> Pill("${ready * 100 / rec.n.coerceAtLeast(1)}% generated", HolosColors.Muted)
+                    complete -> Pill(t("Ready", "Готово"), HolosColors.Success)
+                    generating -> Pill(t("Generating ${ready * 100 / rec.n.coerceAtLeast(1)}%", "Генерація ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Pink)
+                    rec.id in pausedSet -> Pill(t("Paused ${ready * 100 / rec.n.coerceAtLeast(1)}%", "Пауза ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Muted)
+                    else -> Pill(t("${ready * 100 / rec.n.coerceAtLeast(1)}% generated", "Згенеровано ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Muted)
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
-                    DateFormat.getDateInstance(DateFormat.SHORT).format(Date(rec.createdAt)),
+                    DateFormat.getDateInstance(DateFormat.SHORT, if (UiLang.isUk) java.util.Locale("uk") else java.util.Locale.ENGLISH).format(Date(rec.createdAt)),
                     style = MaterialTheme.typography.labelSmall, color = HolosColors.Faint,
                     modifier = Modifier.padding(end = 12.dp),
                 )

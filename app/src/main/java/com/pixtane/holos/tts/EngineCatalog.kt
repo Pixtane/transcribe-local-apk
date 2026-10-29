@@ -3,6 +3,8 @@ package com.pixtane.holos.tts
 import com.pixtane.holos.Lang
 import com.pixtane.holos.VOICES
 import com.pixtane.holos.Voice
+import com.pixtane.holos.t
+import com.pixtane.holos.uiName
 
 enum class EngineKind { SUPERTONIC, VITS }
 
@@ -97,4 +99,13 @@ object EngineCatalog {
 
     fun get(id: String?): EnginePack = ALL.firstOrNull { it.id == id } ?: SUPERTONIC
     fun forLang(code: String): List<EnginePack> = ALL.filter { code in it.languages }
+}
+
+/** Engine name in the current UI language. */
+fun EnginePack.uiName(): String =
+    if (kind == EngineKind.VITS) "Coqui VITS · " + Lang.of(languages.first()).uiName() else name
+
+fun EnginePack.uiBlurb(): String = when (kind) {
+    EngineKind.SUPERTONIC -> t("Natural, expressive voices. 10 speakers, 31 languages.", "Природні, виразні голоси. 10 дикторів, 31 мова.")
+    EngineKind.VITS -> t("Very fast, lightweight single-voice model.", "Дуже швидка легка модель з одним голосом.")
 }

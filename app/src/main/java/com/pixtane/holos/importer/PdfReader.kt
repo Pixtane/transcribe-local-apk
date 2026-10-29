@@ -1,5 +1,6 @@
 package com.pixtane.holos.importer
 
+import com.pixtane.holos.t
 import android.content.Context
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -19,7 +20,7 @@ object PdfReader {
         PDFBoxResourceLoader.init(context.applicationContext)
         PDDocument.load(file).use { doc ->
             if (doc.isEncrypted && !doc.currentAccessPermission.canExtractContent()) {
-                throw IOException("This PDF does not allow text extraction")
+                throw IOException(t("This PDF does not allow text extraction", "Цей PDF забороняє копіювання тексту"))
             }
             val pages = doc.numberOfPages
             val stripper = PDFTextStripper().apply { sortByPosition = true }
@@ -35,7 +36,7 @@ object PdfReader {
                 if (p % 5 == 0 || p == pages) onProgress(p, pages)
             }
             pageStart[pages] = sb.length
-            if (sb.isBlank()) throw IOException("This PDF has no text layer (scanned images need OCR)")
+            if (sb.isBlank()) throw IOException(t("This PDF has no text layer (scanned images need OCR)", "У цьому PDF немає текстового шару (скановані сторінки потребують розпізнавання)"))
 
             val chapters = ArrayList<Chapter>()
             fun walk(node: PDOutlineNode, depth: Int) {

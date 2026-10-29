@@ -1,5 +1,9 @@
 package com.pixtane.holos.ui.components
 
+import com.pixtane.holos.uiName
+import com.pixtane.holos.languagesCount
+import com.pixtane.holos.tts.uiName
+import com.pixtane.holos.t
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -85,10 +89,10 @@ fun ModelCard(pack: EnginePack, modifier: Modifier = Modifier, compact: Boolean 
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(pack.name, style = MaterialTheme.typography.titleMedium)
+                    Text(pack.uiName(), style = MaterialTheme.typography.titleMedium)
                     Text(
                         "${formatBytes(pack.approxBytes)} · " +
-                            if (pack.languages.size > 3) "${pack.languages.size} languages" else pack.languages.joinToString { Lang.of(it).english },
+                            if (pack.languages.size > 3) languagesCount(pack.languages.size) else pack.languages.joinToString { Lang.of(it).uiName() },
                         style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
                     )
                 }
@@ -106,34 +110,34 @@ fun ModelCard(pack: EnginePack, modifier: Modifier = Modifier, compact: Boolean 
                     Spacer(Modifier.height(8.dp))
                     Row {
                         Text(
-                            "${formatBytes(d.downloaded)} of ${formatBytes(d.total)} · ${d.source}",
+                            t("${formatBytes(d.downloaded)} of ${formatBytes(d.total)} · ${d.source}", "${formatBytes(d.downloaded)} з ${formatBytes(d.total)} · ${d.source}"),
                             style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = { ModelManager.cancel(pack) }) { Text("Cancel") }
+                        TextButton(onClick = { ModelManager.cancel(pack) }) { Text(t("Cancel", "Скасувати")) }
                     }
                 }
                 ModelManager.State.Extracting -> {
                     LinearProgressIndicator(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape), color = HolosColors.Violet, trackColor = HolosColors.SurfaceHigh)
                     Spacer(Modifier.height(8.dp))
-                    Text("Unpacking model…", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+                    Text(t("Unpacking model…", "Розпакування моделі…"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
                 }
                 is ModelManager.State.Failed -> {
-                    Text("Download failed: ${(state as ModelManager.State.Failed).message}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Danger)
+                    Text(t("Download failed: ${(state as ModelManager.State.Failed).message}", "Помилка завантаження: ${(state as ModelManager.State.Failed).message}"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Danger)
                     Spacer(Modifier.height(10.dp))
-                    GradientButton("Try again", onClick = { ModelManager.download(pack) })
+                    GradientButton(t("Try again", "Спробувати ще"), onClick = { ModelManager.download(pack) })
                 }
                 ModelManager.State.Ready -> {
-                    Text("Downloaded · ready to use offline", style = MaterialTheme.typography.bodySmall, color = HolosColors.Success)
+                    Text(t("Downloaded · ready to use offline", "Завантажено · працює офлайн"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Success)
                 }
                 ModelManager.State.Missing -> {
                     if (!compact) {
                         Text(
-                            "Downloaded once, then everything runs on your phone — no internet, no account, your texts never leave the device.",
+                            t("Downloaded once, then everything runs on your phone — no internet, no account, your texts never leave the device.", "Завантажується один раз, далі все працює на телефоні — без інтернету й акаунта, тексти не залишають пристрій."),
                             style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted,
                         )
                         Spacer(Modifier.height(12.dp))
                     }
-                    GradientButton("Download ${pack.family}", onClick = { ModelManager.download(pack) })
+                    GradientButton(t("Download ${pack.family}", "Завантажити ${pack.family}"), onClick = { ModelManager.download(pack) })
                 }
             }
         }
@@ -259,7 +263,7 @@ fun MiniPlayer(
                 }
                 IconButton(onClick = onToggle) {
                     if (buffering) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.5.dp, color = Color.White)
-                    else Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "Play/pause", tint = Color.White, modifier = Modifier.size(30.dp))
+                    else Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, t("Play/pause", "Відтворити/пауза"), tint = Color.White, modifier = Modifier.size(30.dp))
                 }
             }
             Box(Modifier.fillMaxWidth().height(3.dp).background(Color.White.copy(alpha = 0.08f))) {

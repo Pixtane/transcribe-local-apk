@@ -1,5 +1,6 @@
 package com.pixtane.holos.ui.screens
 
+import com.pixtane.holos.t
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
@@ -58,15 +59,17 @@ fun AboutSection() {
         Column(Modifier.padding(18.dp)) {
             Text("Holos ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.titleSmall)
             Text(
-                "Everything runs on your phone. Holos has no account, no ads, no analytics, and never uploads your texts " +
-                    "or audio. The internet is only used to download voice models.",
+                t(
+                    "Everything runs on your phone. Holos has no account, no ads, no analytics, and never uploads your texts or audio. The internet is only used to download voice models.",
+                    "Усе працює на вашому телефоні. У Holos немає акаунтів, реклами й аналітики, ваші тексти та аудіо нікуди не надсилаються. Інтернет потрібен лише для завантаження голосових моделей.",
+                ),
                 style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
             )
             TextButton(onClick = {
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) }
-            }) { Text("Privacy policy", color = HolosColors.Violet) }
+            }) { Text(t("Privacy policy", "Політика конфіденційності"), color = HolosColors.Violet) }
             Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Open-source licenses & model terms", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(t("Open-source licenses & model terms", "Ліцензії та умови моделей"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                 Icon(if (open) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
             }
             if (open) {

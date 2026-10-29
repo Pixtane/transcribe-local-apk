@@ -1,5 +1,9 @@
 package com.pixtane.holos.ui.screens
 
+import com.pixtane.holos.sentencesCount
+import com.pixtane.holos.chaptersCount
+import com.pixtane.holos.uiName
+import com.pixtane.holos.t
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -261,9 +265,9 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
             // Top bar
             Row(Modifier.padding(horizontal = 4.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
+                IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, t("Back", "Назад")) }
                 Column(Modifier.weight(1f)) {
-                    Text("NOW READING", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), letterSpacing = 1.5.sp)
+                    Text(t("NOW READING", "ЗАРАЗ ЧИТАЄТЬСЯ"), style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), letterSpacing = 1.5.sp)
                     Text(rec.title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (chapterIdx >= 0) {
                         Text(
@@ -277,14 +281,14 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                 IconButton(onClick = { showChapters = true }) {
                     Icon(
                         if (rec.chapters.isEmpty()) Icons.Rounded.Search else Icons.AutoMirrored.Rounded.List,
-                        if (rec.chapters.isEmpty()) "Search" else "Chapters", tint = Color.White,
+                        if (rec.chapters.isEmpty()) t("Search", "Пошук") else t("Chapters", "Розділи"), tint = Color.White,
                     )
                 }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, t("More", "Більше")) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text("Delete", color = HolosColors.Danger) },
+                            text = { Text(t("Delete", "Видалити"), color = HolosColors.Danger) },
                             leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = HolosColors.Danger) },
                             onClick = { menu = false; confirmDelete = true },
                         )
@@ -313,10 +317,10 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                     verticalArrangement = Arrangement.spacedBy(22.dp),
                 ) {
                     item(key = "header") {
-                        val voiceLabel = if (rec.pack.voices.size > 1) "Voice ${rec.pack.voices.getOrNull(rec.voice)?.code ?: "?"}" else rec.pack.family
+                        val voiceLabel = if (rec.pack.voices.size > 1) t("Voice", "Голос") + " ${rec.pack.voices.getOrNull(rec.voice)?.code ?: "?"}" else rec.pack.family
                         Text(
-                            "${rec.lang.flag}  ${rec.lang.native} · $voiceLabel · " +
-                                (if (rec.chapters.isNotEmpty()) "${rec.chapters.size} chapters" else "${rec.n} sentences"),
+                            "${rec.lang.flag}  ${rec.lang.uiName()} · $voiceLabel · " +
+                                (if (rec.chapters.isNotEmpty()) chaptersCount(rec.chapters.size) else sentencesCount(rec.n)),
                             style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f),
                         )
                     }
@@ -348,7 +352,7 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                         Row(Modifier.padding(horizontal = 16.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.MyLocation, null, Modifier.size(16.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Back to current line", style = MaterialTheme.typography.labelLarge)
+                            Text(t("Back to current line", "До поточного рядка"), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -382,8 +386,8 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                     IconButton(onClick = {
                         val st = rec.startMs(curSeg)
                         playSentence(if (pos - st > 2000) curSeg else curSeg - 1)
-                    }) { Icon(Icons.Rounded.SkipPrevious, "Previous sentence", Modifier.size(30.dp)) }
-                    IconButton(onClick = { seekTo(pos - 10_000) }) { Icon(Icons.Rounded.Replay10, "Back 10 seconds", Modifier.size(30.dp)) }
+                    }) { Icon(Icons.Rounded.SkipPrevious, t("Previous sentence", "Попереднє речення"), Modifier.size(30.dp)) }
+                    IconButton(onClick = { seekTo(pos - 10_000) }) { Icon(Icons.Rounded.Replay10, t("Back 10 seconds", "Назад на 10 секунд"), Modifier.size(30.dp)) }
                     val ended = isCurrent && snap.state == androidx.media3.common.Player.STATE_ENDED
                     Box(
                         Modifier.size(72.dp).clip(CircleShape).background(Color.White)
@@ -392,13 +396,13 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                     ) {
                         when {
                             isCurrent && snap.isBuffering -> CircularProgressIndicator(Modifier.size(30.dp), color = Color.Black, strokeWidth = 3.dp)
-                            ended -> Icon(Icons.Rounded.Replay, "Replay", tint = Color.Black, modifier = Modifier.size(38.dp))
-                            isCurrent && snap.playWhenReady -> Icon(Icons.Rounded.Pause, "Pause", tint = Color.Black, modifier = Modifier.size(40.dp))
-                            else -> Icon(Icons.Rounded.PlayArrow, "Play", tint = Color.Black, modifier = Modifier.size(42.dp))
+                            ended -> Icon(Icons.Rounded.Replay, t("Replay", "Знову"), tint = Color.Black, modifier = Modifier.size(38.dp))
+                            isCurrent && snap.playWhenReady -> Icon(Icons.Rounded.Pause, t("Pause", "Пауза"), tint = Color.Black, modifier = Modifier.size(40.dp))
+                            else -> Icon(Icons.Rounded.PlayArrow, t("Play", "Відтворити"), tint = Color.Black, modifier = Modifier.size(42.dp))
                         }
                     }
-                    IconButton(onClick = { seekTo(pos + 10_000) }) { Icon(Icons.Rounded.Forward10, "Forward 10 seconds", Modifier.size(30.dp)) }
-                    IconButton(onClick = { playSentence(curSeg + 1) }) { Icon(Icons.Rounded.SkipNext, "Next sentence", Modifier.size(30.dp)) }
+                    IconButton(onClick = { seekTo(pos + 10_000) }) { Icon(Icons.Rounded.Forward10, t("Forward 10 seconds", "Вперед на 10 секунд"), Modifier.size(30.dp)) }
+                    IconButton(onClick = { playSentence(curSeg + 1) }) { Icon(Icons.Rounded.SkipNext, t("Next sentence", "Наступне речення"), Modifier.size(30.dp)) }
                     Box(Modifier.width(52.dp))
                 }
             }
@@ -415,8 +419,8 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete recording?") },
-            text = { Text("“${rec.title}” and its audio will be removed from this phone.") },
+            title = { Text(t("Delete recording?", "Видалити запис?")) },
+            text = { Text(t("“${rec.title}” and its audio will be removed from this phone.", "«${rec.title}» і його аудіо буде видалено з телефону.")) },
             confirmButton = {
                 TextButton(onClick = {
                     SynthesisManager.cancel(id)
@@ -424,9 +428,9 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                     RecordingRepository.delete(id)
                     confirmDelete = false
                     nav.pop()
-                }) { Text("Delete", color = HolosColors.Danger) }
+                }) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(t("Cancel", "Скасувати")) } },
         )
     }
 }
@@ -493,7 +497,7 @@ private fun GenerationStatus(rec: Recording, ready: Int, synth: SynthesisManager
     Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
         if (complete) {
             Text(
-                "Saved · ${formatBytes(rec.audioBytesOnDisk())} · plays offline",
+                t("Saved · ${formatBytes(rec.audioBytesOnDisk())} · plays offline", "Збережено · ${formatBytes(rec.audioBytesOnDisk())} · грає офлайн"),
                 style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f),
                 modifier = Modifier.weight(1f),
             )
@@ -502,15 +506,15 @@ private fun GenerationStatus(rec: Recording, ready: Int, synth: SynthesisManager
         val pct = ready * 100 / rec.n.coerceAtLeast(1)
         Column(Modifier.weight(1f)) {
             val label = when {
-                active && synth.loadingEngines -> "Loading voice engines… $pct%"
+                active && synth.loadingEngines -> t("Loading voice engines… $pct%", "Завантаження рушіїв… $pct%")
                 active -> buildString {
-                    append("Generating $pct%")
-                    if (synth.charsPerSec > 0) append(" · ${synth.charsPerSec.toInt()} chars/s")
-                    if (synth.etaSec >= 0) append(" · ${formatDuration(synth.etaSec * 1000L)} left")
+                    append(t("Generating $pct%", "Генерація $pct%"))
+                    if (synth.charsPerSec > 0) append(t(" · ${synth.charsPerSec.toInt()} chars/s", " · ${synth.charsPerSec.toInt()} симв/с"))
+                    if (synth.etaSec >= 0) append(t(" · ${formatDuration(synth.etaSec * 1000L)} left", " · залишилось ${formatDuration(synth.etaSec * 1000L)}"))
                 }
-                paused -> "Generation paused at $pct%"
-                SynthesisManager.isQueuedOrActive(rec.id) -> "Waiting in queue · $pct%"
-                else -> "$pct% generated"
+                paused -> t("Generation paused at $pct%", "Генерацію призупинено на $pct%")
+                SynthesisManager.isQueuedOrActive(rec.id) -> t("Waiting in queue · $pct%", "У черзі · $pct%")
+                else -> t("$pct% generated", "Згенеровано $pct%")
             }
             Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
             synth.error?.takeIf { paused }?.let {
@@ -520,7 +524,7 @@ private fun GenerationStatus(rec: Recording, ready: Int, synth: SynthesisManager
         TextButton(onClick = {
             if (active || SynthesisManager.isQueuedOrActive(rec.id)) SynthesisManager.pause(rec.id) else SynthesisManager.enqueue(rec.id)
         }) {
-            Text(if (active || SynthesisManager.isQueuedOrActive(rec.id)) "Pause" else "Resume", color = Color.White)
+            Text(if (active || SynthesisManager.isQueuedOrActive(rec.id)) t("Pause", "Пауза") else t("Resume", "Продовжити"), color = Color.White)
         }
     }
 }

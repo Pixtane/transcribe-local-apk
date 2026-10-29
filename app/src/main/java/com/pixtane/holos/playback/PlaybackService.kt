@@ -2,6 +2,7 @@
 
 package com.pixtane.holos.playback
 
+import com.pixtane.holos.t
 import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.MediaItem
@@ -30,13 +31,13 @@ class PlaybackService : MediaSessionService() {
         )
         @Suppress("DEPRECATION")
         val back = CommandButton.Builder()
-            .setDisplayName("Back 10 seconds")
+            .setDisplayName(t("Back 10 seconds", "Назад на 10 секунд"))
             .setIconResId(R.drawable.ic_replay_10)
             .setPlayerCommand(Player.COMMAND_SEEK_BACK)
             .build()
         @Suppress("DEPRECATION")
         val forward = CommandButton.Builder()
-            .setDisplayName("Forward 10 seconds")
+            .setDisplayName(t("Forward 10 seconds", "Вперед на 10 секунд"))
             .setIconResId(R.drawable.ic_forward_10)
             .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
             .build()

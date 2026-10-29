@@ -1,5 +1,12 @@
 package com.pixtane.holos.ui.screens
 
+import com.pixtane.holos.tts.uiBlurb
+import com.pixtane.holos.recordingsCount
+import com.pixtane.holos.UiLang
+import com.pixtane.holos.uiName
+import com.pixtane.holos.tts.uiName
+import com.pixtane.holos.stepsCount
+import com.pixtane.holos.t
 import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -102,45 +109,55 @@ fun SettingsScreen(nav: Nav) {
 
     Column(Modifier.fillMaxSize().background(HolosColors.Bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            Text("Settings", style = MaterialTheme.typography.titleLarge)
+            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, t("Back", "Назад")) }
+            Text(t("Settings", "Налаштування"), style = MaterialTheme.typography.titleLarge)
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp)) {
-            SectionLabel("Default quality")
+            SectionLabel(t("App language", "Мова застосунку"))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                for ((code, label) in listOf("uk" to "🇺🇦  Українська", "en" to "🇬🇧  English")) {
+                    SelectableCard(selected = UiLang.state.value == code, onClick = { UiLang.set(code) }, modifier = Modifier.weight(1f)) {
+                        Text(label, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(t("Default quality", "Якість за замовчуванням"))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 for ((s, label) in QUALITY_PRESETS) {
                     SelectableCard(selected = steps == s, onClick = { steps = s; Prefs.steps = s }, modifier = Modifier.weight(1f)) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(label, style = MaterialTheme.typography.labelLarge)
-                            Text("$s steps", style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                            Text(stepsCount(s), style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
                         }
                     }
                 }
             }
             Text(
-                "Supertonic is a flow-matching model: each step refines the audio. 2 steps is ~2× faster than 5 with slightly rougher sound.",
+                t("Supertonic is a flow-matching model: each step refines the audio. 2 steps is ~2× faster than 5 with slightly rougher sound.", "Supertonic уточнює звук за кілька кроків: 2 кроки приблизно вдвічі швидші за 5, але звучать трохи грубіше."),
                 style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, modifier = Modifier.padding(top = 8.dp),
             )
 
             Spacer(Modifier.height(24.dp))
-            SectionLabel("Performance")
+            SectionLabel(t("Performance", "Продуктивність"))
             Card {
                 LabeledSlider(
-                    "Parallel engines", "${workers.toInt()}",
-                    "Each engine works on a different sentence (~200 MB RAM each). 4 suits an 8-core phone like the Nothing Phone 3a.",
+                    t("Parallel engines", "Паралельні рушії"), "${workers.toInt()}",
+                    t("Each engine works on a different sentence (~200 MB RAM each). 4 suits an 8-core phone like the Nothing Phone 3a.", "Кожен рушій озвучує окреме речення (~200 МБ пам'яті кожен). Для 8-ядерного телефона, як Nothing Phone 3a, підходить 3–4."),
                     workers, 1f..6f, 4,
                 ) { workers = it; Prefs.workers = it.toInt() }
                 Spacer(Modifier.height(16.dp))
                 LabeledSlider(
-                    "Threads per engine", "${threads.toInt()}",
-                    "More threads rarely help; parallel engines scale better.",
+                    t("Threads per engine", "Потоків на рушій"), "${threads.toInt()}",
+                    t("More threads rarely help; parallel engines scale better.", "Більше потоків рідко допомагає — паралельні рушії ефективніші."),
                     threads, 1f..4f, 2,
                 ) { threads = it; Prefs.threadsPerWorker = it.toInt() }
                 Spacer(Modifier.height(16.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Compact audio", style = MaterialTheme.typography.titleSmall)
-                        Text("Store speech at 22 kHz (half the size, near-identical for voice)", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+                        Text(t("Compact audio", "Компактне аудіо"), style = MaterialTheme.typography.titleSmall)
+                        Text(t("Store speech at 22 kHz (half the size, near-identical for voice)", "Зберігати мовлення у 22 кГц (удвічі менше місця, для голосу майже без різниці)"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
                     }
                     Switch(
                         checked = compact, onCheckedChange = { compact = it; Prefs.compactAudio = it },
@@ -150,12 +167,12 @@ fun SettingsScreen(nav: Nav) {
             }
 
             Spacer(Modifier.height(24.dp))
-            SectionLabel("Speed test")
+            SectionLabel(t("Speed test", "Тест швидкості"))
             Card {
                 val cps = Prefs.measuredCps
                 Text(
-                    if (cps > 0) "Last measured: ${cps.toInt()} characters/s → 10 pages in ~${formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong())}"
-                    else "Measure how fast this phone generates speech with the current settings.",
+                    if (cps > 0) t("Last measured: ${cps.toInt()} characters/s → 10 pages in ~${formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong())}", "Останній вимір: ${cps.toInt()} символів/с → 10 сторінок за ~${formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong())}")
+                    else t("Measure how fast this phone generates speech with the current settings.", "Виміряйте, як швидко цей телефон генерує мовлення з поточними налаштуваннями."),
                     style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted,
                 )
                 benchResult?.let {
@@ -164,7 +181,7 @@ fun SettingsScreen(nav: Nav) {
                 }
                 Spacer(Modifier.height(12.dp))
                 GradientButton(
-                    text = if (benchRunning) "Measuring…" else "Run speed test",
+                    text = if (benchRunning) t("Measuring…", "Вимірювання…") else t("Run speed test", "Запустити тест"),
                     enabled = !benchRunning && !synth.running && model == ModelManager.State.Ready,
                     modifier = Modifier.fillMaxWidth(),
                     leading = {
@@ -174,29 +191,29 @@ fun SettingsScreen(nav: Nav) {
                     onClick = {
                         benchRunning = true; benchResult = null
                         scope.launch {
-                            benchResult = try { runBenchmark(steps) } catch (e: Throwable) { "Failed: ${e.message}" }
+                            benchResult = try { runBenchmark(steps) } catch (e: Throwable) { t("Failed: ${e.message}", "Помилка: ${e.message}") }
                             benchRunning = false
                         }
                     },
                 )
                 if (synth.running) {
-                    Text("Available when no recording is being generated.", style = MaterialTheme.typography.bodySmall, color = HolosColors.Faint, modifier = Modifier.padding(top = 6.dp))
+                    Text(t("Available when no recording is being generated.", "Доступно, коли не йде генерація запису."), style = MaterialTheme.typography.bodySmall, color = HolosColors.Faint, modifier = Modifier.padding(top = 6.dp))
                 }
             }
 
             Spacer(Modifier.height(24.dp))
-            SectionLabel("Voice engines")
+            SectionLabel(t("Voice engines", "Голосові рушії"))
             EnginesSection(synth.running)
 
             Spacer(Modifier.height(24.dp))
-            SectionLabel("About")
+            SectionLabel(t("About", "Про застосунок"))
             AboutSection()
 
             Spacer(Modifier.height(24.dp))
-            SectionLabel("Storage")
+            SectionLabel(t("Storage", "Сховище"))
             Card {
                 val bytes = remember(recordings) { recordings.sumOf { it.audioBytesOnDisk() } }
-                Text("${recordings.size} recordings · ${formatBytes(bytes)} of audio", style = MaterialTheme.typography.bodyMedium)
+                Text("${recordingsCount(recordings.size)} · ${formatBytes(bytes)} " + t("of audio", "аудіо"), style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -240,7 +257,8 @@ private suspend fun runBenchmark(steps: Int): String = withContext(Dispatchers.D
     val audioSec = audioSamples / pool.pack.sampleRate.toFloat()
     String.format(
         Locale.US,
-        "%d chars in %.1f s → %.0f chars/s (%.0f× real time). 10 pages ≈ %s. Engines loaded in %.1f s.",
+        t("%d chars in %.1f s → %.0f chars/s (%.0f× real time). 10 pages ≈ %s. Engines loaded in %.1f s.",
+            "%d символів за %.1f с → %.0f симв/с (у %.0f× швидше за реальний час). 10 сторінок ≈ %s. Рушії завантажено за %.1f с."),
         chars, secs, cps, audioSec / secs, formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong()), loadMs / 1000f,
     )
 }
@@ -278,10 +296,12 @@ private fun EnginesSection(busy: Boolean) {
         Card {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { expandCoqui = !expandCoqui }) {
                 Column(Modifier.weight(1f)) {
-                    Text("Coqui VITS voices", style = MaterialTheme.typography.titleSmall)
+                    Text(t("Coqui VITS voices", "Голоси Coqui VITS"), style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "Very fast single-voice models, one per language (${EngineCatalog.COQUI.size} languages, ~67 MB each). " +
-                            "A lighter alternative to Supertonic.",
+                        t(
+                            "Very fast single-voice models, one per language (${EngineCatalog.COQUI.size} languages, ~67 MB each). A lighter alternative to Supertonic.",
+                            "Дуже швидкі моделі з одним голосом, окремо для кожної мови (${EngineCatalog.COQUI.size} мови, ~67 МБ кожна). Легша альтернатива Supertonic.",
+                        ),
                         style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
                     )
                 }
@@ -302,11 +322,11 @@ private fun EngineRow(pack: EnginePack, busy: Boolean) {
     if (state != ModelManager.State.Ready) {
         ModelCard(pack)
     } else Card {
-        Text(pack.name, style = MaterialTheme.typography.titleSmall)
-        Text(pack.blurb, style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+        Text(pack.uiName(), style = MaterialTheme.typography.titleSmall)
+        Text(pack.uiBlurb(), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
         Text(pack.license, style = MaterialTheme.typography.labelSmall, color = HolosColors.Faint, modifier = Modifier.padding(top = 4.dp))
-        Text("On disk: ${formatBytes(pack.approxBytes)}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
-        TextButton(onClick = { confirm = true }, enabled = !busy) { Text("Delete", color = HolosColors.Danger) }
+        Text(t("On disk: ${formatBytes(pack.approxBytes)}", "На диску: ${formatBytes(pack.approxBytes)}"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+        TextButton(onClick = { confirm = true }, enabled = !busy) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) }
     }
     if (confirm) DeleteEngineDialog(pack) { confirm = false }
 }
@@ -319,21 +339,21 @@ private fun CompactEngineRow(pack: EnginePack, busy: Boolean) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(lang.flag, modifier = Modifier.width(32.dp))
         Column(Modifier.weight(1f)) {
-            Text(lang.native, style = MaterialTheme.typography.bodyMedium)
+            Text(lang.uiName(), style = MaterialTheme.typography.bodyMedium)
             val sub = when (val st = state) {
-                is ModelManager.State.Downloading -> "${formatBytes(st.downloaded)} of ${formatBytes(st.total)}"
-                ModelManager.State.Extracting -> "Unpacking…"
-                is ModelManager.State.Failed -> "Failed: ${st.message}"
-                ModelManager.State.Ready -> "Installed"
+                is ModelManager.State.Downloading -> t("${formatBytes(st.downloaded)} of ${formatBytes(st.total)}", "${formatBytes(st.downloaded)} з ${formatBytes(st.total)}")
+                ModelManager.State.Extracting -> t("Unpacking…", "Розпакування…")
+                is ModelManager.State.Failed -> t("Failed: ${st.message}", "Помилка: ${st.message}")
+                ModelManager.State.Ready -> t("Installed", "Встановлено")
                 ModelManager.State.Missing -> formatBytes(pack.approxBytes)
             }
             Text(sub, style = MaterialTheme.typography.labelSmall, color = if (state is ModelManager.State.Failed) HolosColors.Danger else HolosColors.Muted)
         }
         when (state) {
-            ModelManager.State.Ready -> TextButton(onClick = { confirm = true }, enabled = !busy) { Text("Delete", color = HolosColors.Danger) }
+            ModelManager.State.Ready -> TextButton(onClick = { confirm = true }, enabled = !busy) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) }
             is ModelManager.State.Downloading, ModelManager.State.Extracting ->
-                TextButton(onClick = { ModelManager.cancel(pack) }) { Text("Cancel") }
-            else -> TextButton(onClick = { ModelManager.download(pack) }) { Text("Download", color = HolosColors.Violet) }
+                TextButton(onClick = { ModelManager.cancel(pack) }) { Text(t("Cancel", "Скасувати")) }
+            else -> TextButton(onClick = { ModelManager.download(pack) }) { Text(t("Download", "Завантажити"), color = HolosColors.Violet) }
         }
     }
     if (confirm) DeleteEngineDialog(pack) { confirm = false }
@@ -343,9 +363,9 @@ private fun CompactEngineRow(pack: EnginePack, busy: Boolean) {
 private fun DeleteEngineDialog(pack: EnginePack, onDone: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDone,
-        title = { Text("Delete ${pack.name}?") },
-        text = { Text("Frees ${formatBytes(pack.approxBytes)}. Saved recordings still play; new ones need this engine again.") },
-        confirmButton = { TextButton(onClick = { ModelManager.delete(pack); onDone() }) { Text("Delete", color = HolosColors.Danger) } },
-        dismissButton = { TextButton(onClick = onDone) { Text("Cancel") } },
+        title = { Text(t("Delete ${pack.name}?", "Видалити ${pack.uiName()}?")) },
+        text = { Text(t("Frees ${formatBytes(pack.approxBytes)}. Saved recordings still play; new ones need this engine again.", "Звільнить ${formatBytes(pack.approxBytes)}. Збережені записи й далі гратимуть; для нових знадобиться цей рушій.")) },
+        confirmButton = { TextButton(onClick = { ModelManager.delete(pack); onDone() }) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) } },
+        dismissButton = { TextButton(onClick = onDone) { Text(t("Cancel", "Скасувати")) } },
     )
 }

@@ -1,5 +1,6 @@
 package com.pixtane.holos.importer
 
+import com.pixtane.holos.t
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -19,18 +20,18 @@ object DocumentImporter {
         val base = name.substringBeforeLast('.').replace('_', ' ').trim().ifEmpty { "Document" }
         val ext = name.substringAfterLast('.', "").lowercase()
         val tmp = File(context.cacheDir, "import.bin")
-        onProgress("Reading file…")
+        onProgress(t("Reading file…", "Читання файлу…"))
         context.contentResolver.openInputStream(uri)?.use { input -> tmp.outputStream().use { input.copyTo(it, 1 shl 16) } }
-            ?: throw IOException("Could not open the file")
+            ?: throw IOException(t("Could not open the file", "Не вдалося відкрити файл"))
         try {
             val head = tmp.inputStream().use { s -> ByteArray(68).also { s.read(it) } }
             val magic = String(head, Charsets.ISO_8859_1)
             return when {
                 magic.startsWith("%PDF") || ext == "pdf" ->
-                    PdfReader.read(context, tmp, base) { p, n -> onProgress("Reading page $p of $n…") }
-                magic.startsWith("PK") || ext == "epub" -> { onProgress("Reading EPUB…"); EpubReader.read(tmp, base) }
+                    PdfReader.read(context, tmp, base) { p, n -> onProgress(t("Reading page $p of $n…", "Читання сторінки $p з $n…")) }
+                magic.startsWith("PK") || ext == "epub" -> { onProgress(t("Reading EPUB…", "Читання EPUB…")); EpubReader.read(tmp, base) }
                 magic.length >= 68 && (magic.substring(60, 68) == "BOOKMOBI" || magic.substring(60, 68) == "TEXtREAd") ||
-                    ext in setOf("mobi", "azw", "azw3", "prc") -> { onProgress("Reading MOBI…"); MobiReader.read(tmp.readBytes(), base) }
+                    ext in setOf("mobi", "azw", "azw3", "prc") -> { onProgress(t("Reading MOBI…", "Читання MOBI…")); MobiReader.read(tmp.readBytes(), base) }
                 else -> readText(tmp, base, ext)
             }
         } finally {

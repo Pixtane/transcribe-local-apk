@@ -1,5 +1,9 @@
 package com.pixtane.holos.ui.screens
 
+import com.pixtane.holos.stepsCount
+import com.pixtane.holos.voicesCount
+import com.pixtane.holos.languagesCount
+import com.pixtane.holos.t
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -87,7 +91,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-val QUALITY_PRESETS = listOf(2 to "Fast", 3 to "Balanced", 5 to "Best")
+val QUALITY_PRESETS: List<Pair<Int, String>> get() = listOf(2 to t("Fast", "Швидко"), 3 to t("Balanced", "Баланс"), 5 to t("Best", "Найкраще"))
 
 @Composable
 fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, initialUri: String? = null) {
@@ -131,7 +135,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                     DocumentImporter.import(context, uri) { msg -> importing = msg }
                 }
                 if (doc.text.isBlank()) {
-                    error = "No readable text found in this file"
+                    error = t("No readable text found in this file", "У цьому файлі немає тексту для читання")
                 } else if (doc.chapters.isEmpty() && doc.text.length <= 30_000) {
                     text = doc.text; imported = null
                 } else {
@@ -143,7 +147,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                 throw e
             } catch (e: Throwable) {
                 com.pixtane.holos.CrashReport.crumb("Import failed: $e")
-                error = "Could not import: ${e.message ?: e.javaClass.simpleName}"
+                error = t("Could not import: ${e.message ?: e.javaClass.simpleName}", "Не вдалося імпортувати: ${e.message ?: e.javaClass.simpleName}")
             } finally {
                 importing = null
             }
@@ -167,8 +171,8 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
             .imePadding()
     ) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { VoicePreview.stop(); nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
-            Text("New recording", style = MaterialTheme.typography.titleLarge)
+            IconButton(onClick = { VoicePreview.stop(); nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, t("Back", "Назад")) }
+            Text(t("New recording", "Новий запис"), style = MaterialTheme.typography.titleLarge)
         }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
@@ -176,7 +180,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
 
             OutlinedTextField(
                 value = title, onValueChange = { title = it },
-                placeholder = { Text("Title (optional)") },
+                placeholder = { Text(t("Title (optional)", "Назва (необов'язково)")) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -189,7 +193,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                 doc != null -> DocumentCard(doc, onRemove = { imported = null })
                 else -> OutlinedTextField(
                     value = text, onValueChange = { text = it },
-                    placeholder = { Text("Paste or type the text to read aloud, or import a PDF, EPUB, MOBI or TXT file…") },
+                    placeholder = { Text(t("Paste or type the text to read aloud, or import a PDF, EPUB, MOBI or TXT file…", "Вставте чи введіть текст для озвучення або імпортуйте файл PDF, EPUB, MOBI чи TXT…")) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 420.dp),
                     shape = RoundedCornerShape(20.dp),
                     colors = fieldColors(),
@@ -200,19 +204,19 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
                     onClick = { clipboard.getText()?.text?.let { if (it.isNotBlank()) text = if (text.isBlank()) it else text + "\n\n" + it } },
-                    label = { Text("Paste") },
+                    label = { Text(t("Paste", "Вставити")) },
                     leadingIcon = { Icon(Icons.Rounded.ContentPaste, null, Modifier.size(18.dp)) },
                     colors = chipColors(),
                 )
                 AssistChip(
                     onClick = { importer.launch(DocumentImporter.MIME_TYPES) },
-                    label = { Text("Import PDF · EPUB · MOBI · TXT") },
+                    label = { Text(t("Import PDF · EPUB · MOBI · TXT", "Імпорт PDF · EPUB · MOBI · TXT")) },
                     leadingIcon = { Icon(Icons.Rounded.Description, null, Modifier.size(18.dp)) },
                     colors = chipColors(),
                 )
                 if (text.isNotEmpty() || imported != null) AssistChip(
                     onClick = { text = ""; imported = null },
-                    label = { Text("Clear") },
+                    label = { Text(t("Clear", "Очистити")) },
                     leadingIcon = { Icon(Icons.Rounded.Clear, null, Modifier.size(18.dp)) },
                     colors = chipColors(),
                 )
@@ -220,7 +224,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
             Stats(imported?.text ?: text)
 
             Spacer(Modifier.height(20.dp))
-            SectionLabel("Language")
+            SectionLabel(t("Language", "Мова"))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 for (l in listOf(Lang.UK, Lang.EN)) {
                     SelectableCard(selected = lang === l, onClick = { langCode = l.code; langTouched = true }, modifier = Modifier.weight(1f)) {
@@ -229,17 +233,17 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                 }
                 val other = lang !== Lang.UK && lang !== Lang.EN
                 SelectableCard(selected = other, onClick = { showLanguages = true }, modifier = Modifier.weight(1f)) {
-                    if (other) LangLabel(lang.flag, lang.native, "More ▾") else LangLabel("🌐", "More", "${Lang.ALL.size - 2} languages")
+                    if (other) LangLabel(lang.flag, lang.native, t("More ▾", "Інші ▾")) else LangLabel("🌐", t("More", "Інші"), languagesCount(Lang.ALL.size - 2))
                 }
             }
             when (lang.code) {
-                "la" -> Hint("Read with ecclesiastical (Italian-style) pronunciation using the Italian voice.")
-                "cu" -> Hint("Titlo abbreviations are expanded and old letters modernised, then read with Russian ecclesiastical pronunciation.")
+                "la" -> Hint(t("Read with ecclesiastical (Italian-style) pronunciation using the Italian voice.", "Читається з церковною (італійською) вимовою італійським голосом."))
+                "cu" -> Hint(t("Titlo abbreviations are expanded and old letters modernised, then read with Russian ecclesiastical pronunciation.", "Скорочення під титлами розгортаються, старі літери замінюються сучасними, читання — з церковною вимовою."))
             }
 
             if (packs.size > 1) {
                 Spacer(Modifier.height(20.dp))
-                SectionLabel("Engine")
+                SectionLabel(t("Engine", "Рушій"))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     for (p in packs) {
                         val ready = remember(engineChanges, p.id) { ModelManager.isReady(p) }
@@ -247,8 +251,8 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(p.family, style = MaterialTheme.typography.labelLarge)
                                 Text(
-                                    if (ready) (if (p.voices.size > 1) "${p.voices.size} voices · natural" else "1 voice · fastest")
-                                    else "Not downloaded · ${formatBytes(p.approxBytes)}",
+                                    if (ready) (if (p.voices.size > 1) "${voicesCount(p.voices.size)} · " + t("natural", "природні") else t("1 voice · fastest", "1 голос · найшвидший"))
+                                    else t("Not downloaded · ${formatBytes(p.approxBytes)}", "Не завантажено · ${formatBytes(p.approxBytes)}"),
                                     style = MaterialTheme.typography.labelSmall, color = if (ready) HolosColors.Muted else HolosColors.Faint,
                                 )
                             }
@@ -263,7 +267,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
 
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                SectionLabel("Voice", Modifier.weight(1f))
+                SectionLabel(t("Voice", "Голос"), Modifier.weight(1f))
                 val canPreview = model == ModelManager.State.Ready && !previewing
                 AssistChip(
                     onClick = {
@@ -275,7 +279,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                         }
                     },
                     enabled = model == ModelManager.State.Ready,
-                    label = { Text(if (previewing) "Preparing…" else "Preview") },
+                    label = { Text(if (previewing) t("Preparing…", "Підготовка…") else t("Preview", "Прослухати")) },
                     leadingIcon = {
                         if (previewing) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Rounded.VolumeUp, null, Modifier.size(18.dp))
@@ -289,24 +293,24 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                         SelectableCard(selected = voice == v.sid, onClick = { voice = v.sid }, modifier = Modifier.width(76.dp)) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(v.code, style = MaterialTheme.typography.titleMedium, color = if (v.code.startsWith("F")) HolosColors.Pink else HolosColors.Violet)
-                                Text(if (v.code.startsWith("F")) "Female" else "Male", style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                                Text(if (v.code.startsWith("F")) t("Female", "Жін.") else t("Male", "Чол."), style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
                             }
                         }
                     }
                 }
             } else {
-                Text("${pack.family} has a single voice for ${lang.english}.", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+                Text(t("${pack.family} has a single voice for ${lang.english}.", "${pack.family} має один голос для цієї мови."), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
             }
 
             if (pack.hasQualitySteps) {
                 Spacer(Modifier.height(20.dp))
-                SectionLabel("Quality")
+                SectionLabel(t("Quality", "Якість"))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     for ((s, label) in QUALITY_PRESETS) {
                         SelectableCard(selected = steps == s, onClick = { steps = s }, modifier = Modifier.weight(1f)) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(label, style = MaterialTheme.typography.labelLarge)
-                                Text("$s steps", style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                                Text(stepsCount(s), style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
                             }
                         }
                     }
@@ -322,7 +326,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
             val canCreate = (imported != null || text.isNotBlank()) && importing == null && model == ModelManager.State.Ready && !creating
             GradientButton(
-                text = if (creating) "Preparing…" else "Create & play",
+                text = if (creating) t("Preparing…", "Підготовка…") else t("Create & play", "Створити й слухати"),
                 enabled = canCreate,
                 modifier = Modifier.fillMaxWidth(),
                 leading = { Icon(Icons.Rounded.AutoAwesome, null, tint = androidx.compose.ui.graphics.Color.White) },
@@ -347,7 +351,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                             )
                         }
                         if (rec.n == 0) {
-                            error = "Nothing to read in this text"
+                            error = t("Nothing to read in this text", "У цьому тексті нічого читати")
                             RecordingRepository.delete(rec.id)
                             creating = false
                             return@launch
@@ -359,7 +363,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                         throw e
                       } catch (e: Throwable) {
                         com.pixtane.holos.CrashReport.crumb("Create failed: $e")
-                        error = "Could not start: ${e.message ?: e.javaClass.simpleName}"
+                        error = t("Could not start: ${e.message ?: e.javaClass.simpleName}", "Не вдалося почати: ${e.message ?: e.javaClass.simpleName}")
                         creating = false
                       }
                     }
@@ -387,10 +391,10 @@ private fun Stats(text: String) {
     val pages = chars / CHARS_PER_PAGE
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Stat(String.format(Locale.US, "%,d", chars), "characters")
-        Stat(if (pages < 10) String.format(Locale.US, "%.1f", pages) else pages.toInt().toString(), "pages")
-        Stat("~" + formatHuman(audioMs), "of audio")
-        Stat("~" + formatHuman(genMs), "to generate")
+        Stat(String.format(Locale.US, "%,d", chars), t("characters", "символів"))
+        Stat(if (pages < 10) String.format(Locale.US, "%.1f", pages) else pages.toInt().toString(), t("pages", "сторінок"))
+        Stat("~" + formatHuman(audioMs), t("of audio", "аудіо"))
+        Stat("~" + formatHuman(genMs), t("to generate", "на генерацію"))
     }
 }
 
@@ -451,12 +455,12 @@ private fun DocumentCard(doc: ImportedDoc, onRemove: () -> Unit) {
                     Text(
                         buildString {
                             append(doc.format)
-                            if (doc.chapters.isNotEmpty()) append(" · ${doc.chapters.size} chapters")
+                            if (doc.chapters.isNotEmpty()) append(" · ${chaptersCount(doc.chapters.size)}")
                         },
                         style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
                     )
                 }
-                IconButton(onClick = onRemove) { Icon(Icons.Rounded.Clear, "Remove") }
+                IconButton(onClick = onRemove) { Icon(Icons.Rounded.Clear, t("Remove", "Прибрати")) }
             }
             if (doc.chapters.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
@@ -464,7 +468,7 @@ private fun DocumentCard(doc: ImportedDoc, onRemove: () -> Unit) {
                     Text("•  ${c.title}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
-                if (doc.chapters.size > 6) Text("…and ${doc.chapters.size - 6} more", style = MaterialTheme.typography.bodySmall, color = HolosColors.Faint)
+                if (doc.chapters.size > 6) Text(t("…and ${doc.chapters.size - 6} more", "…і ще ${doc.chapters.size - 6}"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Faint)
             } else {
                 Spacer(Modifier.height(10.dp))
                 Text(doc.text.take(280).replace('\n', ' ') + "…", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, maxLines = 4)

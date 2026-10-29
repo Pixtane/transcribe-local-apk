@@ -1,5 +1,6 @@
 package com.pixtane.holos.importer
 
+import com.pixtane.holos.t
 import org.jsoup.Jsoup
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -11,9 +12,9 @@ import java.nio.charset.Charset
  */
 object MobiReader {
     fun read(data: ByteArray, fallbackTitle: String): ImportedDoc {
-        if (data.size < 78 + 8) throw IOException("File is too small to be a MOBI book")
+        if (data.size < 78 + 8) throw IOException(t("File is too small to be a MOBI book", "Файл замалий для книжки MOBI"))
         val type = String(data, 60, 8, Charsets.ISO_8859_1)
-        if (type != "BOOKMOBI" && type != "TEXtREAd") throw IOException("Not a MOBI book")
+        if (type != "BOOKMOBI" && type != "TEXtREAd") throw IOException(t("Not a MOBI book", "Це не книжка MOBI"))
         val numRecords = u16(data, 76)
         val offsets = IntArray(numRecords + 1) { i -> if (i < numRecords) u32(data, 78 + i * 8).toInt() else data.size }
         fun record(i: Int): ByteArray = data.copyOfRange(offsets[i], offsets[i + 1])
@@ -22,7 +23,7 @@ object MobiReader {
         val compression = u16(r0, 0)
         val textRecords = u16(r0, 8)
         val encryption = u16(r0, 12)
-        if (encryption != 0) throw IOException("This book is DRM-protected and cannot be read")
+        if (encryption != 0) throw IOException(t("This book is DRM-protected and cannot be read", "Книжку захищено DRM, її неможливо прочитати"))
 
         var charset: Charset = Charsets.ISO_8859_1
         var title = fallbackTitle
@@ -98,7 +99,7 @@ object MobiReader {
         if (chapters.size < 2) chapters = ChapterDetector.detect(text.sb.toString())
         val (clean, ch0) = TextCleanup.normalize(text.sb.toString(), chapters)
         val ch = ChapterDetector.enrich(clean, ch0)
-        if (clean.isBlank()) throw IOException("No readable text found in this book")
+        if (clean.isBlank()) throw IOException(t("No readable text found in this book", "У цій книжці немає тексту для читання"))
         return ImportedDoc(title, clean, ch, "MOBI")
     }
 

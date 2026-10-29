@@ -1,5 +1,6 @@
 package com.pixtane.holos.synth
 
+import com.pixtane.holos.t
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
@@ -80,20 +81,20 @@ class SynthesisService : Service() {
         )
         val pct = if (st.total > 0) st.done * 100 / st.total else 0
         val detail = when {
-            st.loadingEngines -> "Loading voice engines…"
-            st.etaSec >= 0 -> "$pct% · ${formatDuration(st.etaSec * 1000L)} left · ${st.charsPerSec.toInt()} chars/s"
+            st.loadingEngines -> t("Loading voice engines…", "Завантаження рушіїв…")
+            st.etaSec >= 0 -> t("$pct% · ${formatDuration(st.etaSec * 1000L)} left · ${st.charsPerSec.toInt()} chars/s", "$pct% · залишилось ${formatDuration(st.etaSec * 1000L)} · ${st.charsPerSec.toInt()} симв/с")
             else -> "$pct%"
         }
         return NotificationCompat.Builder(this, HolosApp.CHANNEL_SYNTH)
             .setSmallIcon(R.drawable.ic_stat_holos)
-            .setContentTitle(rec?.let { "Generating · ${it.title}" } ?: "Preparing voice")
+            .setContentTitle(rec?.let { t("Generating · ${it.title}", "Генерація · ${it.title}") } ?: t("Preparing voice", "Підготовка голосу"))
             .setContentText(detail)
             .setProgress(st.total.coerceAtLeast(1), st.done, st.loadingEngines)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setContentIntent(open)
-            .addAction(0, "Pause", pause)
+            .addAction(0, t("Pause", "Пауза"), pause)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }

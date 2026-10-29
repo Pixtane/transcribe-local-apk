@@ -1,5 +1,6 @@
 package com.pixtane.holos.ui
 
+import com.pixtane.holos.t
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -23,10 +24,10 @@ fun CrashDialog(report: String, onDismiss: () -> Unit) {
     val clipboard = LocalClipboardManager.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Holos stopped last time") },
+        title = { Text(t("Holos stopped last time", "Holos минулого разу аварійно закрився")) },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
-                Text("Copy this report and send it to the developer.", style = MaterialTheme.typography.bodyMedium)
+                Text(t("Copy this report and send it to the developer.", "Скопіюйте цей звіт і надішліть розробнику."), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(10.dp))
                 SelectionContainer {
                     Text(report, style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace))
@@ -34,8 +35,8 @@ fun CrashDialog(report: String, onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = { clipboard.setText(AnnotatedString(report)); onDismiss() }) { Text("Copy report") }
+            TextButton(onClick = { clipboard.setText(AnnotatedString(report)); onDismiss() }) { Text(t("Copy report", "Копіювати звіт")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(t("Close", "Закрити")) } },
     )
 }

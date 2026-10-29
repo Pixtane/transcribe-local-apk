@@ -1,5 +1,6 @@
 package com.pixtane.holos.importer
 
+import com.pixtane.holos.t
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.parser.Parser
@@ -15,9 +16,9 @@ object EpubReader {
             fun entryText(path: String): String? =
                 zip.getEntry(path)?.let { e -> zip.getInputStream(e).use { it.readBytes().toString(Charsets.UTF_8) } }
 
-            val container = entryText("META-INF/container.xml") ?: throw IOException("Not an EPUB (no container.xml)")
+            val container = entryText("META-INF/container.xml") ?: throw IOException(t("Not an EPUB (no container.xml)", "Це не EPUB (немає container.xml)"))
             val opfPath = Regex("full-path\\s*=\\s*\"([^\"]+)\"").find(container)?.groupValues?.get(1)
-                ?: throw IOException("EPUB has no package file")
+                ?: throw IOException(t("EPUB has no package file", "В EPUB немає файлу пакета"))
             val opfDir = opfPath.substringBeforeLast('/', "")
             val opf = Jsoup.parse(entryText(opfPath) ?: throw IOException("Missing $opfPath"), "", Parser.xmlParser())
 
@@ -36,7 +37,7 @@ object EpubReader {
             if (zip.getEntry("META-INF/encryption.xml") != null &&
                 entryText("META-INF/encryption.xml")?.contains("EncryptedData") == true &&
                 entryText("META-INF/encryption.xml")?.contains("font", ignoreCase = true) != true
-            ) throw IOException("This EPUB is DRM-protected")
+            ) throw IOException(t("This EPUB is DRM-protected", "Цей EPUB захищено DRM"))
 
             val title = opf.getElementsByTag("dc:title").firstOrNull()?.text()?.trim()?.takeIf { it.isNotEmpty() } ?: fallbackTitle
             val language = opf.getElementsByTag("dc:language").firstOrNull()?.text()?.trim()
@@ -50,7 +51,7 @@ object EpubReader {
             val spine = spineEl?.getElementsByTag("itemref")?.mapNotNull { items[it.attr("idref")] }
                 ?.filter { it.type.contains("html") || it.href.endsWith("html") || it.href.endsWith("htm") }
                 ?: emptyList()
-            if (spine.isEmpty()) throw IOException("EPUB has no readable content")
+            if (spine.isEmpty()) throw IOException(t("EPUB has no readable content", "В EPUB немає тексту для читання"))
 
             // Text of every spine document, recording where each file and each id starts.
             val out = HtmlText()
