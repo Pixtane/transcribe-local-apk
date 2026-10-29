@@ -48,6 +48,23 @@ At ~200 chars/s, 10 pages take about **1.5 minutes**. Phone speed should be in t
 in the worst case, generation runs many times faster than real time, so playback never
 waits after the first sentence.
 
+## Engines and languages
+
+| Engine | Languages | Voices | Size |
+|---|---|---|---|
+| Supertonic 3 (default) | 31 languages, plus ecclesiastical Latin and Church Slavonic | 10 | 145 MB |
+| Coqui VITS (optional, per language) | uk, de, bg, cs, da, es, et, fi, fr, ga, hr, lt, lv, mt, nl, pl, pt, ro, sk, sl, sv | 1 | 67 MB each |
+
+No open model speaks Latin or Church Slavonic, so Holos rewrites the text and reads it with Supertonic:
+- **Latin:** ecclesiastical Latin spelling is converted to Italian spelling (æ/œ→e, ti+vowel→zi, ph→f, mihi→michi…) and read with the Italian voice.
+- **Church Slavonic:** titlo abbreviations are expanded (бг҃ъ→бог, гдⷭ҇ь→господь…), archaic letters modernised (ѣ→е, ѡ→о, ѳ→ф…) and accents removed, then read with the Russian voice.
+
+Other models were tested and rejected: Kokoro (too slow on CPU), KittenTTS and Piper (need espeak-ng, which sherpa-onnx 2.x removed), and Meta MMS (non-commercial license).
+
+## Google Play
+
+See [PLAY_STORE.md](PLAY_STORE.md) for the full release checklist (paid app, upload key, store listing, policies).
+
 ## Building
 
 The APK is built by GitHub Actions (`.github/workflows/build-apk.yml`) on every push and

@@ -1,0 +1,1 @@
+First release: offline neural text-to-speech in 30+ languages, PDF/EPUB/MOBI import with chapters, lock-screen player with word highlighting.

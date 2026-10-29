@@ -52,6 +52,9 @@ jobs:
           path: out/*.apk
 
       - name: Publish GitHub release
+        # Set the repository variable PUBLISH_APK_RELEASES=false to stop publishing free APKs
+        # (e.g. once the app is sold on Google Play). The APK is still kept as a build artifact.
+        if: ${{ vars.PUBLISH_APK_RELEASES != 'false' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

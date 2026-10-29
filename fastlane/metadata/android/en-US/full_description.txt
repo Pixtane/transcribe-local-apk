@@ -1,0 +1,27 @@
+Holos turns any text, article, PDF or e-book into natural speech — right on your phone. No internet, no account, no subscription: buy once, use forever.
+
+🎙 NATURAL AI VOICES, 100% OFFLINE
+Holos runs a modern neural text-to-speech model (Supertonic 3) directly on your device. Download the voice model once, and everything works in airplane mode. Your texts never leave your phone.
+
+🌍 30+ LANGUAGES
+Ukrainian, English, German, French, Spanish, Italian, Polish, Czech, Portuguese, Dutch, Swedish, Finnish, Greek, Turkish, Japanese, Korean, Hindi, Arabic, Vietnamese and more — plus ecclesiastical Latin and Church Slavonic readings.
+
+📚 READS YOUR BOOKS
+Import TXT, PDF, EPUB and MOBI files, or share text from any app. Chapters are detected automatically from the book's table of contents, PDF bookmarks or headings — search them and jump anywhere.
+
+🎧 A REAL AUDIO PLAYER
+• Plays with the screen locked, with lock-screen and headset controls
+• See the text highlighted word by word as it is read, like song lyrics
+• Seek anywhere, ±10 seconds, previous/next sentence, speed 0.75×–2.5×
+• Tap any sentence to jump to it
+
+⚡ FAST
+Several voice engines work in parallel, so listening starts within seconds and a 10-page text is ready in minutes. Progress is saved after every sentence — nothing is lost if the app is closed.
+
+🗂 YOUR LIBRARY
+All recordings are saved on your phone with generation and listening progress, ready to replay offline.
+
+🔒 PRIVATE BY DESIGN
+No ads. No tracking. No account. No data collection.
+
+Choose from 10 voices, three quality levels, and optional lightweight voices for 21 languages.
