@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.session.MediaController
 import com.pixtane.holos.Lang
+import com.pixtane.holos.chaptersCount
 import com.pixtane.holos.Prefs
 import com.pixtane.holos.data.RecordingRepository
 import com.pixtane.holos.importer.DocumentImporter
