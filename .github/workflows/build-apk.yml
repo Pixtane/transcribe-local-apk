@@ -1,0 +1,63 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch sherpa-onnx Android library
+        run: ./scripts/fetch-sherpa.sh
+
+      - name: Probe Hugging Face model mirrors
+        continue-on-error: true
+        run: |
+          M=sherpa-onnx-supertonic-3-tts-int8-2026-05-11
+          for repo in csukuangfj/$M csukuangfj2/$M k2-fsa/$M; do
+            code=$(curl -s -o /dev/null -L -r 0-0 -w '%{http_code}' "https://huggingface.co/$repo/resolve/main/tts.json")
+            echo "HF_PROBE $repo -> $code"
+          done
+
+      - name: Build release APK
+        run: ./gradlew --no-daemon assembleRelease --stacktrace
+
+      - name: Collect APK
+        id: apk
+        run: |
+          VERSION="1.0.${{ github.run_number }}"
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/Holos-$VERSION.apk"
+          ls -lh out
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Holos-${{ steps.apk.outputs.version }}
+          path: out/*.apk
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="v${{ steps.apk.outputs.version }}"
+          gh release create "$TAG" out/*.apk \
+            --target "${{ github.sha }}" \
+            --title "Holos ${{ steps.apk.outputs.version }}" \
+            --notes "Offline AI text-to-speech for Ukrainian, German and English (Supertonic 3 via sherpa-onnx). Install the APK on an arm64 Android 8+ phone. Built from ${{ github.sha }} on ${{ github.ref_name }}." \
+            --prerelease
