@@ -16,5 +16,6 @@
 -dontwarn com.gemalto.jp2.**
 -dontwarn org.bouncycastle.**
 # jsoup optional regex engine
+-keep class org.jsoup.** { *; }
 -dontwarn com.google.re2j.**
 -ignorewarnings
