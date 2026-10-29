@@ -56,12 +56,16 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pixtane.holos.Lang
+import com.pixtane.holos.tts.EnginePack
 import com.pixtane.holos.tts.ModelManager
+import androidx.compose.runtime.collectAsState
 import com.pixtane.holos.ui.formatBytes
 import com.pixtane.holos.ui.theme.HolosColors
 
 @Composable
-fun ModelCard(state: ModelManager.State, modifier: Modifier = Modifier) {
+fun ModelCard(pack: EnginePack, modifier: Modifier = Modifier, compact: Boolean = false) {
+    val state by ModelManager.state(pack).collectAsState()
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -81,9 +85,10 @@ fun ModelCard(state: ModelManager.State, modifier: Modifier = Modifier) {
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Voice model", style = MaterialTheme.typography.titleMedium)
+                    Text(pack.name, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "${ModelManager.MODEL_NAME} · ${formatBytes(ModelManager.TOTAL_BYTES)} · Ukrainian, German, English",
+                        "${formatBytes(pack.approxBytes)} · " +
+                            if (pack.languages.size > 3) "${pack.languages.size} languages" else pack.languages.joinToString { Lang.of(it).english },
                         style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
                     )
                 }
@@ -91,7 +96,8 @@ fun ModelCard(state: ModelManager.State, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(14.dp))
             when (state) {
                 is ModelManager.State.Downloading -> {
-                    val p = if (state.total > 0) state.downloaded.toFloat() / state.total else 0f
+                    val d = state as ModelManager.State.Downloading
+                    val p = if (d.total > 0) d.downloaded.toFloat() / d.total else 0f
                     LinearProgressIndicator(
                         progress = { p.coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
@@ -100,10 +106,10 @@ fun ModelCard(state: ModelManager.State, modifier: Modifier = Modifier) {
                     Spacer(Modifier.height(8.dp))
                     Row {
                         Text(
-                            "${formatBytes(state.downloaded)} of ${formatBytes(state.total)} · ${state.source}",
+                            "${formatBytes(d.downloaded)} of ${formatBytes(d.total)} · ${d.source}",
                             style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = { ModelManager.cancel() }) { Text("Cancel") }
+                        TextButton(onClick = { ModelManager.cancel(pack) }) { Text("Cancel") }
                     }
                 }
                 ModelManager.State.Extracting -> {
@@ -112,17 +118,22 @@ fun ModelCard(state: ModelManager.State, modifier: Modifier = Modifier) {
                     Text("Unpacking model…", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
                 }
                 is ModelManager.State.Failed -> {
-                    Text("Download failed: ${state.message}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Danger)
+                    Text("Download failed: ${(state as ModelManager.State.Failed).message}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Danger)
                     Spacer(Modifier.height(10.dp))
-                    GradientButton("Try again", onClick = { ModelManager.download() })
+                    GradientButton("Try again", onClick = { ModelManager.download(pack) })
                 }
-                else -> {
-                    Text(
-                        "Downloaded once, then everything runs on your phone — no internet, no account, your texts never leave the device.",
-                        style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    GradientButton("Download model", onClick = { ModelManager.download() })
+                ModelManager.State.Ready -> {
+                    Text("Downloaded · ready to use offline", style = MaterialTheme.typography.bodySmall, color = HolosColors.Success)
+                }
+                ModelManager.State.Missing -> {
+                    if (!compact) {
+                        Text(
+                            "Downloaded once, then everything runs on your phone — no internet, no account, your texts never leave the device.",
+                            style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    GradientButton("Download ${pack.family}", onClick = { ModelManager.download(pack) })
                 }
             }
         }

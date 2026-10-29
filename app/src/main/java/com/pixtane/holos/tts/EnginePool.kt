@@ -6,6 +6,7 @@ import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsSupertonicModelConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig
 import com.pixtane.holos.CrashReport
 import com.pixtane.holos.HolosApp
 import kotlinx.coroutines.Dispatchers
@@ -18,20 +19,15 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * A pool of Supertonic engines. Each [OfflineTts] is single-threaded from our side, so
- * running several instances side by side (one per worker) scales throughput on a
- * big.LITTLE phone far better than giving one instance more ONNX threads.
+ * A pool of engines for one [EnginePack]. Each [OfflineTts] is used by one worker at a time;
+ * running several instances side by side (one per worker) scales throughput on a big.LITTLE
+ * phone far better than giving one instance more ONNX threads.
  */
-object EnginePool {
-    const val MODEL_SAMPLE_RATE = 44_100
-    private const val TAG = "EnginePool"
-    private const val IDLE_RELEASE_MS = 90_000L
-
+class EnginePool private constructor(val pack: EnginePack) {
     private val mutex = Mutex()
-    /** Engines are created one at a time: loading several models at once spikes memory. */
-    private val createMutex = Mutex()
     private val available = ArrayDeque<OfflineTts>()
     private val threadsOf = HashMap<OfflineTts, Int>()
     private var created = 0
@@ -71,7 +67,7 @@ object EnginePool {
                 return try {
                     withContext(Dispatchers.IO) {
                         createMutex.withLock {
-                            CrashReport.crumb("Creating engine (threads=$threadCount)")
+                            CrashReport.crumb("Creating ${pack.id} engine (threads=$threadCount)")
                             val t = OfflineTts(config = buildConfig(threadCount))
                             CrashReport.crumb("Engine ready")
                             mutex.withLock { threadsOf[t] = threadCount }
@@ -107,14 +103,16 @@ object EnginePool {
         }
     }
 
-    fun generate(tts: OfflineTts, text: String, lang: String, sid: Int, steps: Int): FloatArray {
-        val cfg = GenerationConfig(
-            sid = sid,
-            speed = 1.0f,
-            numSteps = steps,
-            extra = mapOf("lang" to lang, "num_steps" to steps.toString()),
-        )
-        return tts.generateWithConfig(text, cfg).samples
+    /** Synthesizes [text]; returns samples at [EnginePack.sampleRate]. */
+    fun generate(tts: OfflineTts, text: String, lang: String, sid: Int, steps: Int): FloatArray = when (pack.kind) {
+        EngineKind.SUPERTONIC -> tts.generateWithConfig(
+            text,
+            GenerationConfig(
+                sid = sid, speed = 1.0f, numSteps = steps,
+                extra = mapOf("lang" to lang, "num_steps" to steps.toString()),
+            ),
+        ).samples
+        EngineKind.VITS -> tts.generate(text, sid = sid.coerceAtLeast(0), speed = 1.0f).samples
     }
 
     /** Frees every idle engine (e.g. after the model was deleted). */
@@ -132,7 +130,7 @@ object EnginePool {
             delay(IDLE_RELEASE_MS)
             mutex.withLock {
                 if (borrowed == 0) {
-                    Log.i(TAG, "Releasing ${available.size} idle engines")
+                    Log.i(TAG, "Releasing ${available.size} idle ${pack.id} engines")
                     while (available.isNotEmpty()) destroy(available.removeFirst())
                 }
             }
@@ -145,22 +143,37 @@ object EnginePool {
         try { t.release() } catch (e: Throwable) { Log.w(TAG, "release failed", e) }
     }
 
-    private fun buildConfig(threadCount: Int) = OfflineTtsConfig(
-        model = OfflineTtsModelConfig(
-            supertonic = OfflineTtsSupertonicModelConfig(
-                durationPredictor = ModelManager.file("duration_predictor.int8.onnx"),
-                textEncoder = ModelManager.file("text_encoder.int8.onnx"),
-                vectorEstimator = ModelManager.file("vector_estimator.int8.onnx"),
-                vocoder = ModelManager.file("vocoder.int8.onnx"),
-                ttsJson = ModelManager.file("tts.json"),
-                unicodeIndexer = ModelManager.file("unicode_indexer.bin"),
-                voiceStyle = ModelManager.file("voice.bin"),
-            ),
-            numThreads = threadCount,
-            debug = false,
-            provider = "cpu",
-        ),
-        maxNumSentences = 1,
-        silenceScale = 0.2f,
-    )
+    private fun f(name: String) = ModelManager.file(pack, name)
+
+    private fun buildConfig(threadCount: Int): OfflineTtsConfig {
+        val model = when (pack.kind) {
+            EngineKind.SUPERTONIC -> OfflineTtsModelConfig(
+                supertonic = OfflineTtsSupertonicModelConfig(
+                    durationPredictor = f("duration_predictor.int8.onnx"),
+                    textEncoder = f("text_encoder.int8.onnx"),
+                    vectorEstimator = f("vector_estimator.int8.onnx"),
+                    vocoder = f("vocoder.int8.onnx"),
+                    ttsJson = f("tts.json"),
+                    unicodeIndexer = f("unicode_indexer.bin"),
+                    voiceStyle = f("voice.bin"),
+                ),
+                numThreads = threadCount, debug = false, provider = "cpu",
+            )
+            EngineKind.VITS -> OfflineTtsModelConfig(
+                vits = OfflineTtsVitsModelConfig(model = f("model.onnx"), tokens = f("tokens.txt")),
+                numThreads = threadCount, debug = false, provider = "cpu",
+            )
+        }
+        return OfflineTtsConfig(model = model, maxNumSentences = 1, silenceScale = 0.2f)
+    }
+
+    companion object {
+        private const val TAG = "EnginePool"
+        private const val IDLE_RELEASE_MS = 90_000L
+        /** Engines are created one at a time (across packs): loading several models at once spikes memory. */
+        private val createMutex = Mutex()
+        private val pools = ConcurrentHashMap<String, EnginePool>()
+
+        fun of(pack: EnginePack): EnginePool = pools.getOrPut(pack.id) { EnginePool(pack) }
+    }
 }

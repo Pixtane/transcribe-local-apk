@@ -2,6 +2,10 @@ package com.pixtane.holos.ui.screens
 
 import android.os.SystemClock
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,6 +53,8 @@ import com.pixtane.holos.Lang
 import com.pixtane.holos.Prefs
 import com.pixtane.holos.data.RecordingRepository
 import com.pixtane.holos.synth.SynthesisManager
+import com.pixtane.holos.tts.EngineCatalog
+import com.pixtane.holos.tts.EnginePack
 import com.pixtane.holos.tts.EnginePool
 import com.pixtane.holos.tts.ModelManager
 import com.pixtane.holos.ui.CHARS_PER_PAGE
@@ -83,7 +89,7 @@ private val BENCH_TEXT = listOf(
 @Composable
 fun SettingsScreen(nav: Nav) {
     val scope = rememberCoroutineScope()
-    val model by ModelManager.state.collectAsStateWithLifecycle()
+    val model by ModelManager.state(EngineCatalog.SUPERTONIC).collectAsStateWithLifecycle()
     val synth by SynthesisManager.status.collectAsStateWithLifecycle()
     val recordings by RecordingRepository.list.collectAsStateWithLifecycle()
 
@@ -93,7 +99,6 @@ fun SettingsScreen(nav: Nav) {
     var compact by remember { mutableStateOf(Prefs.compactAudio) }
     var benchRunning by remember { mutableStateOf(false) }
     var benchResult by remember { mutableStateOf<String?>(null) }
-    var confirmDeleteModel by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().background(HolosColors.Bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -180,23 +185,12 @@ fun SettingsScreen(nav: Nav) {
             }
 
             Spacer(Modifier.height(24.dp))
-            SectionLabel("Model")
-            if (model != ModelManager.State.Ready) {
-                ModelCard(model)
-            } else {
-                Card {
-                    Text(ModelManager.MODEL_NAME, style = MaterialTheme.typography.titleSmall)
-                    Text(
-                        "Supertonic 3 by Supertone (OpenRAIL-M), int8 ONNX export from sherpa-onnx. 99M parameters, 31 languages, 10 voices, 44.1 kHz.",
-                        style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text("On disk: ${formatBytes(ModelManager.TOTAL_BYTES)}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
-                    TextButton(onClick = { confirmDeleteModel = true }, enabled = !synth.running) {
-                        Text("Delete model", color = HolosColors.Danger)
-                    }
-                }
-            }
+            SectionLabel("Voice engines")
+            EnginesSection(synth.running)
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel("About")
+            AboutSection()
 
             Spacer(Modifier.height(24.dp))
             SectionLabel("Storage")
@@ -208,25 +202,17 @@ fun SettingsScreen(nav: Nav) {
         }
     }
 
-    if (confirmDeleteModel) {
-        AlertDialog(
-            onDismissRequest = { confirmDeleteModel = false },
-            title = { Text("Delete voice model?") },
-            text = { Text("Frees ${formatBytes(ModelManager.TOTAL_BYTES)}. Saved recordings still play; new ones need the model again.") },
-            confirmButton = { TextButton(onClick = { ModelManager.delete(); confirmDeleteModel = false }) { Text("Delete", color = HolosColors.Danger) } },
-            dismissButton = { TextButton(onClick = { confirmDeleteModel = false }) { Text("Cancel") } },
-        )
-    }
 }
 
 private suspend fun runBenchmark(steps: Int): String = withContext(Dispatchers.Default) {
     val workers = Prefs.workers
-    EnginePool.configure(workers, Prefs.threadsPerWorker)
+    val pool = EnginePool.of(EngineCatalog.SUPERTONIC)
+    pool.configure(workers, Prefs.threadsPerWorker)
     val loadStart = SystemClock.elapsedRealtime()
     // Warm-up: make sure every engine is loaded so the timing below is pure generation.
     coroutineScope {
         (0 until workers).map {
-            async { EnginePool.withEngine { tts -> EnginePool.generate(tts, "Привіт.", Lang.UK.code, 0, 1) } }
+            async { pool.withEngine { tts -> pool.generate(tts, "Привіт.", Lang.UK.code, 0, 1) } }
         }.awaitAll()
     }
     val loadMs = SystemClock.elapsedRealtime() - loadStart
@@ -242,7 +228,7 @@ private suspend fun runBenchmark(steps: Int): String = withContext(Dispatchers.D
                 while (true) {
                     val i = next.getAndIncrement()
                     if (i >= texts.size) break
-                    local += EnginePool.withEngine { tts -> EnginePool.generate(tts, texts[i], Lang.UK.code, 0, steps).size }
+                    local += pool.withEngine { tts -> pool.generate(tts, texts[i], Lang.UK.code, 0, steps).size }
                 }
                 local
             }
@@ -251,7 +237,7 @@ private suspend fun runBenchmark(steps: Int): String = withContext(Dispatchers.D
     val secs = (SystemClock.elapsedRealtime() - t0) / 1000f
     val cps = chars / secs
     Prefs.measuredCps = cps
-    val audioSec = audioSamples / EnginePool.MODEL_SAMPLE_RATE.toFloat()
+    val audioSec = audioSamples / pool.pack.sampleRate.toFloat()
     String.format(
         Locale.US,
         "%d chars in %.1f s → %.0f chars/s (%.0f× real time). 10 pages ≈ %s. Engines loaded in %.1f s.",
@@ -282,4 +268,84 @@ private fun LabeledSlider(
         colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = HolosColors.Violet, inactiveTrackColor = HolosColors.SurfaceHigh),
     )
     Text(hint, style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+}
+
+@Composable
+private fun EnginesSection(busy: Boolean) {
+    var expandCoqui by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        EngineRow(EngineCatalog.SUPERTONIC, busy)
+        Card {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { expandCoqui = !expandCoqui }) {
+                Column(Modifier.weight(1f)) {
+                    Text("Coqui VITS voices", style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        "Very fast single-voice models, one per language (${EngineCatalog.COQUI.size} languages, ~67 MB each). " +
+                            "A lighter alternative to Supertonic.",
+                        style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
+                    )
+                }
+                Icon(if (expandCoqui) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+            }
+            if (expandCoqui) {
+                Spacer(Modifier.height(8.dp))
+                for (p in EngineCatalog.COQUI) CompactEngineRow(p, busy)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EngineRow(pack: EnginePack, busy: Boolean) {
+    val state by ModelManager.state(pack).collectAsStateWithLifecycle()
+    var confirm by remember { mutableStateOf(false) }
+    if (state != ModelManager.State.Ready) {
+        ModelCard(pack)
+    } else Card {
+        Text(pack.name, style = MaterialTheme.typography.titleSmall)
+        Text(pack.blurb, style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+        Text(pack.license, style = MaterialTheme.typography.labelSmall, color = HolosColors.Faint, modifier = Modifier.padding(top = 4.dp))
+        Text("On disk: ${formatBytes(pack.approxBytes)}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+        TextButton(onClick = { confirm = true }, enabled = !busy) { Text("Delete", color = HolosColors.Danger) }
+    }
+    if (confirm) DeleteEngineDialog(pack) { confirm = false }
+}
+
+@Composable
+private fun CompactEngineRow(pack: EnginePack, busy: Boolean) {
+    val state by ModelManager.state(pack).collectAsStateWithLifecycle()
+    var confirm by remember { mutableStateOf(false) }
+    val lang = com.pixtane.holos.Lang.of(pack.languages.first())
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(lang.flag, modifier = Modifier.width(32.dp))
+        Column(Modifier.weight(1f)) {
+            Text(lang.native, style = MaterialTheme.typography.bodyMedium)
+            val sub = when (val st = state) {
+                is ModelManager.State.Downloading -> "${formatBytes(st.downloaded)} of ${formatBytes(st.total)}"
+                ModelManager.State.Extracting -> "Unpacking…"
+                is ModelManager.State.Failed -> "Failed: ${st.message}"
+                ModelManager.State.Ready -> "Installed"
+                ModelManager.State.Missing -> formatBytes(pack.approxBytes)
+            }
+            Text(sub, style = MaterialTheme.typography.labelSmall, color = if (state is ModelManager.State.Failed) HolosColors.Danger else HolosColors.Muted)
+        }
+        when (state) {
+            ModelManager.State.Ready -> TextButton(onClick = { confirm = true }, enabled = !busy) { Text("Delete", color = HolosColors.Danger) }
+            is ModelManager.State.Downloading, ModelManager.State.Extracting ->
+                TextButton(onClick = { ModelManager.cancel(pack) }) { Text("Cancel") }
+            else -> TextButton(onClick = { ModelManager.download(pack) }) { Text("Download", color = HolosColors.Violet) }
+        }
+    }
+    if (confirm) DeleteEngineDialog(pack) { confirm = false }
+}
+
+@Composable
+private fun DeleteEngineDialog(pack: EnginePack, onDone: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text("Delete ${pack.name}?") },
+        text = { Text("Frees ${formatBytes(pack.approxBytes)}. Saved recordings still play; new ones need this engine again.") },
+        confirmButton = { TextButton(onClick = { ModelManager.delete(pack); onDone() }) { Text("Delete", color = HolosColors.Danger) } },
+        dismissButton = { TextButton(onClick = onDone) { Text("Cancel") } },
+    )
 }

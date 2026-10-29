@@ -49,6 +49,9 @@ object Prefs {
         get() = sp.getFloat("cps", 0f)
         set(v) = sp.edit().putFloat("cps", v).apply()
 
+    fun engineFor(lang: String): String? = sp.getString("engine_$lang", null)
+    fun setEngineFor(lang: String, id: String) = sp.edit().putString("engine_$lang", id).apply()
+
     var lastPlayedId: String?
         get() = sp.getString("last_played", null)
         set(v) = sp.edit().putString("last_played", v).apply()

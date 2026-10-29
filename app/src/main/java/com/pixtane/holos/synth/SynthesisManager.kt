@@ -115,7 +115,7 @@ object SynthesisManager {
         while (true) {
             val id = synchronized(queue) { queue.removeFirstOrNull() } ?: break
             val rec = RecordingRepository.get(id) ?: continue
-            if (rec.isComplete || !ModelManager.isReady()) continue
+            if (rec.isComplete || !ModelManager.isReady(rec.pack)) continue
             activeId = id
             _status.value = Status(id, rec.ready.value, rec.n, loadingEngines = true)
             val job = HolosApp.scope.launch { generate(rec) }
@@ -131,8 +131,9 @@ object SynthesisManager {
 
     private suspend fun generate(rec: Recording) {
         val workers = Prefs.workers
-        CrashReport.crumb("Start generating ${rec.id}: ${rec.n} sentences, $workers engines, ${rec.steps} steps")
-        EnginePool.configure(workers, Prefs.threadsPerWorker)
+        CrashReport.crumb("Start generating ${rec.id} with ${rec.engineId}: ${rec.n} sentences, $workers engines, ${rec.steps} steps")
+        val pool = EnginePool.of(rec.pack)
+        pool.configure(workers, Prefs.threadsPerWorker)
         val inProgress = HashSet<Int>()
         val lock = Any()
         val chars = AtomicLong(0)
@@ -153,13 +154,13 @@ object SynthesisManager {
                         while (isActive) {
                             val i = pick() ?: break
                             try {
-                                EnginePool.withEngine { tts ->
+                                pool.withEngine { tts ->
                                     startedAt.compareAndSet(0, SystemClock.elapsedRealtime())
                                     val text = rec.ttsText(i)
                                     CrashReport.crumb("Generating sentence $i (${text.length} chars)")
-                                    val raw = EnginePool.generate(tts, text, rec.lang.code, rec.voice, rec.steps)
+                                    val raw = pool.generate(tts, rec.lang.prepare(text), rec.lang.ttsCode, rec.voice, rec.steps)
                                     // An empty result (e.g. text with nothing pronounceable) becomes a short pause.
-                                    val samples = if (raw.isEmpty()) raw else if (rec.sampleRate == EnginePool.MODEL_SAMPLE_RATE) raw else Dsp.decimate2(raw)
+                                    val samples = if (raw.isEmpty() || rec.sampleRate == pool.pack.sampleRate) raw else Dsp.decimate2(raw)
                                     val silence = rec.silenceFrames(i)
                                     val pcm = Dsp.toPcm16(samples, silence)
                                     val dest = rec.segFile(i)

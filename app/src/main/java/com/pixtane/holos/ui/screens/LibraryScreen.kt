@@ -65,6 +65,7 @@ import com.pixtane.holos.data.Recording
 import com.pixtane.holos.data.RecordingRepository
 import com.pixtane.holos.playback.PlayerBus
 import com.pixtane.holos.synth.SynthesisManager
+import com.pixtane.holos.tts.EngineCatalog
 import com.pixtane.holos.tts.ModelManager
 import com.pixtane.holos.ui.Nav
 import com.pixtane.holos.ui.PlayerActions
@@ -83,7 +84,9 @@ import java.util.Date
 @Composable
 fun LibraryScreen(nav: Nav, controller: MediaController?) {
     val recordings by RecordingRepository.list.collectAsStateWithLifecycle()
-    val model by ModelManager.state.collectAsStateWithLifecycle()
+    val model by ModelManager.state(EngineCatalog.SUPERTONIC).collectAsStateWithLifecycle()
+    val engineChanges by ModelManager.changes.collectAsStateWithLifecycle()
+    val anyEngine = remember(engineChanges, model) { ModelManager.readyPacks().isNotEmpty() }
     val snap by PlayerBus.snapshot.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Recording?>(null) }
     var renaming by remember { mutableStateOf<Recording?>(null) }
@@ -113,10 +116,10 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                 }
             }
             if (model != ModelManager.State.Ready) {
-                item { ModelCard(model) }
+                item { ModelCard(EngineCatalog.SUPERTONIC) }
             }
             if (recordings.isEmpty()) {
-                item { EmptyState(onCreate = { nav.push(Screen.Create()) }, enabled = model == ModelManager.State.Ready) }
+                item { EmptyState(onCreate = { nav.push(Screen.Create()) }, enabled = anyEngine) }
             } else {
                 item {
                     Text(
@@ -163,7 +166,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
             GradientButton(
                 "New recording",
                 onClick = { nav.push(Screen.Create()) },
-                enabled = model == ModelManager.State.Ready,
+                enabled = anyEngine,
                 leading = { Icon(Icons.Rounded.Add, null, tint = Color.White) },
             )
             val cur = snap.recordingId?.let { id -> recordings.firstOrNull { it.id == id } }

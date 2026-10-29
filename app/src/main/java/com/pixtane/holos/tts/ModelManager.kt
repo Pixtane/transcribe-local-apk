@@ -6,9 +6,9 @@ import com.pixtane.holos.HolosApp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
@@ -18,13 +18,13 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.coroutineContext
 
 /**
- * Downloads and tracks the Supertonic 3 model (int8 ONNX export prepared by sherpa-onnx).
- *
- * Files are fetched one by one from Hugging Face; if no mirror answers, the official
- * sherpa-onnx GitHub release tarball is used as a fallback and unpacked on the phone.
+ * Downloads and tracks engine models. Files are fetched one by one from Hugging Face where a
+ * mirror exists; otherwise (or if it fails) the official sherpa-onnx GitHub release tarball is
+ * downloaded and unpacked on the phone.
  */
 object ModelManager {
     sealed interface State {
@@ -35,93 +35,76 @@ object ModelManager {
         data class Failed(val message: String) : State
     }
 
-    const val MODEL_NAME = "Supertonic 3 · int8"
-    const val MODEL_ID = "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
-
-    /** File name to expected size in bytes (used for progress and validation). */
-    val FILES: Map<String, Long> = linkedMapOf(
-        "tts.json" to 8_253L,
-        "unicode_indexer.bin" to 262_144L,
-        "voice.bin" to 517_168L,
-        "duration_predictor.int8.onnx" to 3_700_147L,
-        "text_encoder.int8.onnx" to 36_416_150L,
-        "vocoder.int8.onnx" to 25_991_073L,
-        "vector_estimator.int8.onnx" to 78_400_833L,
-    )
-    val TOTAL_BYTES = FILES.values.sum()
-
-    /** Hugging Face repositories hosting the sherpa-onnx export, tried in order. */
-    private val HF_REPOS = listOf(
-        "csukuangfj2/$MODEL_ID",
-        "csukuangfj/$MODEL_ID",
-        "k2-fsa/$MODEL_ID",
-    )
-    private const val TARBALL_URL =
-        "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/$MODEL_ID.tar.bz2"
-    private const val TARBALL_SIZE = 128_774_318L
-
     private const val MARKER = ".complete"
     private const val TAG = "ModelManager"
 
-    lateinit var dir: File
-        private set
+    private lateinit var root: File
     private lateinit var cacheDir: File
-
-    private val _state = MutableStateFlow<State>(State.Missing)
-    val state: StateFlow<State> = _state
-    private var job: Job? = null
+    private val states = ConcurrentHashMap<String, MutableStateFlow<State>>()
+    private val jobs = ConcurrentHashMap<String, Job>()
+    /** Bumped whenever any engine becomes ready or is deleted. */
+    val changes = MutableStateFlow(0)
 
     fun init(context: Context) {
-        dir = File(context.filesDir, "models/supertonic-3-int8")
+        root = File(context.filesDir, "models")
         cacheDir = context.cacheDir
-        _state.value = if (isReady()) State.Ready else State.Missing
+        for (p in EngineCatalog.ALL) flow(p).value = if (isReady(p)) State.Ready else State.Missing
     }
 
-    fun isReady(): Boolean =
-        File(dir, MARKER).exists() && FILES.keys.all { File(dir, it).length() > 0 }
+    private fun flow(p: EnginePack) = states.getOrPut(p.id) { MutableStateFlow(State.Missing) }
+    fun state(p: EnginePack): StateFlow<State> = flow(p)
 
-    fun file(name: String) = File(dir, name).absolutePath
+    fun dir(p: EnginePack) = File(root, p.dirName)
+    fun file(p: EnginePack, name: String) = File(dir(p), name).absolutePath
+    fun isReady(p: EnginePack): Boolean =
+        File(dir(p), MARKER).exists() && p.files.keys.all { File(dir(p), it).length() > 0 }
+    fun readyPacks(): List<EnginePack> = EngineCatalog.ALL.filter { isReady(it) }
 
-    fun download() {
-        if (job?.isActive == true || isReady()) return
-        job = HolosApp.scope.launch(Dispatchers.IO) {
+    fun download(p: EnginePack) {
+        if (jobs[p.id]?.isActive == true || isReady(p)) return
+        jobs[p.id] = HolosApp.scope.launch(Dispatchers.IO) {
+            val st = flow(p)
             try {
-                dir.mkdirs()
-                if (!tryHuggingFace()) downloadTarball()
-                File(dir, MARKER).writeText(MODEL_ID)
-                _state.value = State.Ready
+                dir(p).mkdirs()
+                if (!tryHuggingFace(p)) downloadTarball(p)
+                File(dir(p), MARKER).writeText(p.id)
+                st.value = State.Ready
+                changes.value++
             } catch (e: CancellationException) {
-                _state.value = State.Missing
+                st.value = State.Missing
                 throw e
             } catch (e: Exception) {
-                Log.e(TAG, "Model download failed", e)
-                _state.value = State.Failed(e.message ?: e.javaClass.simpleName)
+                Log.e(TAG, "Download of ${p.id} failed", e)
+                st.value = State.Failed(e.message ?: e.javaClass.simpleName)
             }
         }
     }
 
-    fun cancel() {
-        job?.cancel()
+    fun cancel(p: EnginePack) {
+        jobs[p.id]?.cancel()
     }
 
-    fun delete() {
-        job?.cancel()
-        EnginePool.releaseAll()
-        dir.deleteRecursively()
-        _state.value = State.Missing
+    fun delete(p: EnginePack) {
+        jobs[p.id]?.cancel()
+        EnginePool.of(p).releaseAll()
+        dir(p).deleteRecursively()
+        flow(p).value = State.Missing
+        changes.value++
     }
 
-    private suspend fun tryHuggingFace(): Boolean {
-        for (repo in HF_REPOS) {
+    private suspend fun tryHuggingFace(p: EnginePack): Boolean {
+        if (p.hfRepos.isEmpty() || p.files.values.any { it < 0 }) return false
+        val total = p.files.values.sum()
+        for (repo in p.hfRepos) {
             val base = "https://huggingface.co/$repo/resolve/main/"
             try {
                 var done = 0L
-                for ((name, size) in FILES) {
-                    val dest = File(dir, name)
+                for ((name, size) in p.files) {
+                    val dest = File(dir(p), name)
                     if (dest.length() == size) { done += size; continue }
                     val before = done
                     httpDownload(base + name, dest) { got, _ ->
-                        _state.value = State.Downloading(before + got, TOTAL_BYTES, "Hugging Face")
+                        flow(p).value = State.Downloading(before + got, total, "Hugging Face")
                     }
                     done += dest.length()
                 }
@@ -135,28 +118,28 @@ object ModelManager {
         return false
     }
 
-    private suspend fun downloadTarball() {
-        val tar = File(cacheDir, "$MODEL_ID.tar.bz2")
-        httpDownload(TARBALL_URL, tar) { got, total ->
-            _state.value = State.Downloading(got, if (total > 0) total else TARBALL_SIZE, "GitHub (sherpa-onnx)")
+    private suspend fun downloadTarball(p: EnginePack) {
+        val tar = File(cacheDir, "${p.id}.tar.bz2")
+        httpDownload(p.tarballUrl, tar) { got, total ->
+            flow(p).value = State.Downloading(got, if (total > 0) total else p.approxBytes, "GitHub (sherpa-onnx)")
         }
-        _state.value = State.Extracting
-        val tmp = File(dir, "tmp").apply { deleteRecursively(); mkdirs() }
+        flow(p).value = State.Extracting
+        val tmp = File(dir(p), "tmp").apply { deleteRecursively(); mkdirs() }
         TarArchiveInputStream(BZip2CompressorInputStream(BufferedInputStream(tar.inputStream(), 1 shl 16))).use { input ->
             var entry = input.nextEntry
             while (entry != null) {
                 coroutineContext.ensureActive()
                 val name = entry.name.substringAfterLast('/')
-                if (!entry.isDirectory && name in FILES) {
+                if (!entry.isDirectory && name in p.files) {
                     FileOutputStream(File(tmp, name)).use { out -> input.copyTo(out, 1 shl 16) }
                 }
                 entry = input.nextEntry
             }
         }
-        for (name in FILES.keys) {
+        for (name in p.files.keys) {
             val src = File(tmp, name)
             if (!src.exists()) throw IOException("Archive is missing $name")
-            val dest = File(dir, name)
+            val dest = File(dir(p), name)
             dest.delete()
             if (!src.renameTo(dest)) throw IOException("Could not move $name")
         }

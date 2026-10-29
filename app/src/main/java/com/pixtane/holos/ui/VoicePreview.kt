@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import com.pixtane.holos.Lang
 import com.pixtane.holos.Prefs
+import com.pixtane.holos.tts.EnginePack
 import com.pixtane.holos.tts.EnginePool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,10 +14,11 @@ import kotlinx.coroutines.withContext
 object VoicePreview {
     private var track: AudioTrack? = null
 
-    suspend fun play(lang: Lang, sid: Int, steps: Int) {
-        EnginePool.configure(Prefs.workers, Prefs.threadsPerWorker)
-        val samples = EnginePool.withEngine { tts ->
-            withContext(Dispatchers.Default) { EnginePool.generate(tts, lang.sample, lang.code, sid, steps) }
+    suspend fun play(lang: Lang, pack: EnginePack, sid: Int, steps: Int) {
+        val pool = EnginePool.of(pack)
+        pool.configure(Prefs.workers, Prefs.threadsPerWorker)
+        val samples = pool.withEngine { tts ->
+            withContext(Dispatchers.Default) { pool.generate(tts, lang.prepare(lang.sample), lang.ttsCode, sid, steps) }
         }
         if (samples.isEmpty()) return
         withContext(Dispatchers.IO) {
@@ -28,7 +30,7 @@ object VoicePreview {
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
                 )
                 .setAudioFormat(
-                    AudioFormat.Builder().setSampleRate(EnginePool.MODEL_SAMPLE_RATE)
+                    AudioFormat.Builder().setSampleRate(pack.sampleRate)
                         .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                         .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()
                 )

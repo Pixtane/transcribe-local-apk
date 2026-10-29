@@ -62,12 +62,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.session.MediaController
 import com.pixtane.holos.Lang
 import com.pixtane.holos.Prefs
-import com.pixtane.holos.VOICES
 import com.pixtane.holos.data.RecordingRepository
 import com.pixtane.holos.importer.DocumentImporter
 import com.pixtane.holos.importer.ImportedDoc
 import com.pixtane.holos.synth.SynthesisManager
-import com.pixtane.holos.tts.EnginePool
+import com.pixtane.holos.tts.EngineCatalog
 import com.pixtane.holos.tts.ModelManager
 import com.pixtane.holos.ui.CHARS_PER_PAGE
 import com.pixtane.holos.ui.DEFAULT_GEN_CPS
@@ -80,6 +79,7 @@ import com.pixtane.holos.ui.components.GradientButton
 import com.pixtane.holos.ui.components.ModelCard
 import com.pixtane.holos.ui.components.SectionLabel
 import com.pixtane.holos.ui.components.SelectableCard
+import com.pixtane.holos.ui.formatBytes
 import com.pixtane.holos.ui.formatHuman
 import com.pixtane.holos.ui.theme.HolosColors
 import kotlinx.coroutines.Dispatchers
@@ -94,11 +94,24 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
-    val model by ModelManager.state.collectAsStateWithLifecycle()
+    val engineChanges by ModelManager.changes.collectAsStateWithLifecycle()
 
     var text by rememberSaveable { mutableStateOf(initialText) }
     var title by rememberSaveable { mutableStateOf("") }
-    var lang by rememberSaveable { mutableStateOf(Lang.of(Prefs.lastLang)) }
+    var langCode by rememberSaveable { mutableStateOf(Prefs.lastLang) }
+    val lang = Lang.of(langCode)
+    var showLanguages by remember { mutableStateOf(false) }
+    val packs = remember(langCode) { EngineCatalog.forLang(langCode) }
+    var packId by rememberSaveable(langCode) {
+        mutableStateOf(
+            Prefs.engineFor(langCode)?.takeIf { id -> packs.any { it.id == id } }
+                ?: packs.firstOrNull { ModelManager.isReady(it) }?.id
+                ?: packs.firstOrNull()?.id ?: EngineCatalog.SUPERTONIC.id
+        )
+    }
+    val pack = EngineCatalog.get(packId)
+    val packState by ModelManager.state(pack).collectAsStateWithLifecycle()
+    val model = packState
     var langTouched by rememberSaveable { mutableStateOf(false) }
     var voice by rememberSaveable { mutableIntStateOf(Prefs.lastVoice) }
     var steps by rememberSaveable { mutableIntStateOf(Prefs.steps) }
@@ -125,7 +138,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                     imported = doc
                 }
                 if (title.isBlank()) title = doc.title
-                if (!langTouched) (doc.language?.let { code -> Lang.entries.firstOrNull { code.startsWith(it.code) } } ?: Lang.detect(doc.text))?.let { lang = it }
+                if (!langTouched) (doc.language?.let { code -> Lang.entries.firstOrNull { code.lowercase().startsWith(it.code) } } ?: Lang.detect(doc.text))?.let { langCode = it.code }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -139,7 +152,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
     LaunchedEffect(initialUri) { initialUri?.let { importUri(Uri.parse(it)) } }
 
     LaunchedEffect(text) {
-        if (!langTouched) Lang.detect(text)?.let { lang = it }
+        if (!langTouched) Lang.detect(text)?.let { langCode = it.code }
     }
 
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -160,10 +173,6 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)
         ) {
-            if (model != ModelManager.State.Ready) {
-                ModelCard(model)
-                Spacer(Modifier.height(16.dp))
-            }
 
             OutlinedTextField(
                 value = title, onValueChange = { title = it },
@@ -213,15 +222,43 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
             Spacer(Modifier.height(20.dp))
             SectionLabel("Language")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                for (l in Lang.entries) {
-                    SelectableCard(selected = lang == l, onClick = { lang = l; langTouched = true }, modifier = Modifier.weight(1f)) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(l.flag, fontSize = 24.sp)
-                            Spacer(Modifier.height(4.dp))
-                            Text(l.native, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                for (l in listOf(Lang.UK, Lang.EN)) {
+                    SelectableCard(selected = lang === l, onClick = { langCode = l.code; langTouched = true }, modifier = Modifier.weight(1f)) {
+                        LangLabel(l.flag, l.native)
+                    }
+                }
+                val other = lang !== Lang.UK && lang !== Lang.EN
+                SelectableCard(selected = other, onClick = { showLanguages = true }, modifier = Modifier.weight(1f)) {
+                    if (other) LangLabel(lang.flag, lang.native, "More ▾") else LangLabel("🌐", "More", "${Lang.ALL.size - 2} languages")
+                }
+            }
+            when (lang.code) {
+                "la" -> Hint("Read with ecclesiastical (Italian-style) pronunciation using the Italian voice.")
+                "cu" -> Hint("Titlo abbreviations are expanded and old letters modernised, then read with Russian ecclesiastical pronunciation.")
+            }
+
+            if (packs.size > 1) {
+                Spacer(Modifier.height(20.dp))
+                SectionLabel("Engine")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for (p in packs) {
+                        val ready = remember(engineChanges, p.id) { ModelManager.isReady(p) }
+                        SelectableCard(selected = p.id == pack.id, onClick = { packId = p.id; Prefs.setEngineFor(langCode, p.id) }, modifier = Modifier.weight(1f)) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(p.family, style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    if (ready) (if (p.voices.size > 1) "${p.voices.size} voices · natural" else "1 voice · fastest")
+                                    else "Not downloaded · ${formatBytes(p.approxBytes)}",
+                                    style = MaterialTheme.typography.labelSmall, color = if (ready) HolosColors.Muted else HolosColors.Faint,
+                                )
+                            }
                         }
                     }
                 }
+            }
+            if (model != ModelManager.State.Ready) {
+                Spacer(Modifier.height(12.dp))
+                ModelCard(pack, compact = true)
             }
 
             Spacer(Modifier.height(20.dp))
@@ -233,7 +270,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                         if (!canPreview) return@AssistChip
                         previewing = true
                         scope.launch {
-                            try { VoicePreview.play(lang, voice, steps) } catch (e: Throwable) { error = e.message }
+                            try { VoicePreview.play(lang, pack, if (pack.voices.size > 1) voice else 0, steps) } catch (e: Throwable) { error = e.message }
                             previewing = false
                         }
                     },
@@ -246,25 +283,31 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                     colors = chipColors(),
                 )
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for (v in VOICES) {
-                    SelectableCard(selected = voice == v.sid, onClick = { voice = v.sid }, modifier = Modifier.width(76.dp)) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(v.code, style = MaterialTheme.typography.titleMedium, color = if (v.code.startsWith("F")) HolosColors.Pink else HolosColors.Violet)
-                            Text(if (v.code.startsWith("F")) "Female" else "Male", style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+            if (pack.voices.size > 1) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (v in pack.voices) {
+                        SelectableCard(selected = voice == v.sid, onClick = { voice = v.sid }, modifier = Modifier.width(76.dp)) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(v.code, style = MaterialTheme.typography.titleMedium, color = if (v.code.startsWith("F")) HolosColors.Pink else HolosColors.Violet)
+                                Text(if (v.code.startsWith("F")) "Female" else "Male", style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                            }
                         }
                     }
                 }
+            } else {
+                Text("${pack.family} has a single voice for ${lang.english}.", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
             }
 
-            Spacer(Modifier.height(20.dp))
-            SectionLabel("Quality")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                for ((s, label) in QUALITY_PRESETS) {
-                    SelectableCard(selected = steps == s, onClick = { steps = s }, modifier = Modifier.weight(1f)) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(label, style = MaterialTheme.typography.labelLarge)
-                            Text("$s steps", style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+            if (pack.hasQualitySteps) {
+                Spacer(Modifier.height(20.dp))
+                SectionLabel("Quality")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    for ((s, label) in QUALITY_PRESETS) {
+                        SelectableCard(selected = steps == s, onClick = { steps = s }, modifier = Modifier.weight(1f)) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(label, style = MaterialTheme.typography.labelLarge)
+                                Text("$s steps", style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                            }
                         }
                     }
                 }
@@ -287,6 +330,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                     creating = true
                     VoicePreview.stop()
                     Prefs.lastLang = lang.code
+                    Prefs.setEngineFor(lang.code, pack.id)
                     Prefs.lastVoice = voice
                     Prefs.steps = steps
                     scope.launch {
@@ -298,8 +342,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                             RecordingRepository.create(
                                 rawText = body,
                                 title = title.trim().ifBlank { RecordingRepository.suggestTitle(body) },
-                                lang = lang, voice = voice, steps = steps,
-                                sampleRate = if (Prefs.compactAudio) EnginePool.MODEL_SAMPLE_RATE / 2 else EnginePool.MODEL_SAMPLE_RATE,
+                                lang = lang, voice = if (pack.voices.size > 1) voice else 0, steps = steps, pack = pack,
                                 chapters = doc?.chapters,
                             )
                         }
@@ -323,6 +366,14 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                 },
             )
         }
+    }
+    if (showLanguages) {
+        LanguageSheet(
+            selected = langCode,
+            engineChanges = engineChanges,
+            onPick = { langCode = it.code; langTouched = true; showLanguages = false },
+            onDismiss = { showLanguages = false },
+        )
     }
 }
 
@@ -420,4 +471,19 @@ private fun DocumentCard(doc: ImportedDoc, onRemove: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun LangLabel(flag: String, name: String, sub: String? = null) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(flag, fontSize = 24.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        if (sub != null) Text(sub, style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted, maxLines = 1)
+    }
+}
+
+@Composable
+private fun Hint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, modifier = Modifier.padding(top = 8.dp))
 }

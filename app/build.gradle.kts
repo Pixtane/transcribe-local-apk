@@ -5,17 +5,22 @@ plugins {
 }
 
 val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+// Minutes since 2026-01-01: always increasing, so Play accepts every new upload.
+val autoVersionCode = ((System.currentTimeMillis() / 60_000L) - 29_453_760L).toInt().coerceAtLeast(1)
+
+// Google Play upload key: provided via environment (GitHub secrets), never committed.
+val uploadKeystore = System.getenv("HOLOS_UPLOAD_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
 
 android {
     namespace = "com.pixtane.holos"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.pixtane.holos"
         minSdk = 26
-        targetSdk = 35
-        versionCode = buildNumber
-        versionName = "1.0.$buildNumber"
+        targetSdk = 36
+        versionCode = autoVersionCode
+        versionName = "1.1.$buildNumber"
         // Nothing Phone 3a (and every modern phone) is arm64.
         ndk { abiFilters += listOf("arm64-v8a") }
     }
@@ -28,6 +33,14 @@ android {
             keyAlias = "holos"
             keyPassword = "holos-local"
         }
+        if (uploadKeystore != null) {
+            create("play") {
+                storeFile = uploadKeystore
+                storePassword = System.getenv("HOLOS_UPLOAD_STORE_PASSWORD")
+                keyAlias = System.getenv("HOLOS_UPLOAD_KEY_ALIAS")
+                keyPassword = System.getenv("HOLOS_UPLOAD_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -35,7 +48,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("play") ?: signingConfigs.getByName("release")
         }
         debug {
             signingConfig = signingConfigs.getByName("release")

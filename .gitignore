@@ -9,3 +9,5 @@ captures/
 .externalNativeBuild/
 .cxx/
 dist/
+*.jks.b64
+holos-upload.jks

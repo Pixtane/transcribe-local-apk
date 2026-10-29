@@ -2,6 +2,8 @@ package com.pixtane.holos.data
 
 import com.pixtane.holos.Lang
 import com.pixtane.holos.importer.Chapter
+import com.pixtane.holos.tts.EngineCatalog
+import com.pixtane.holos.tts.EnginePack
 import com.pixtane.holos.tts.Seg
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +24,7 @@ class Recording(
     val lang: Lang,
     val voice: Int,
     val steps: Int,
+    val engineId: String,
     val sampleRate: Int,
     val createdAt: Long,
     val text: String,
@@ -29,6 +32,7 @@ class Recording(
     val chapters: List<Chapter> = emptyList(),
 ) {
     val n = segs.size
+    val pack: EnginePack get() = EngineCatalog.get(engineId)
 
     /** First sentence of each chapter. */
     val chapterSeg: IntArray = IntArray(chapters.size) { k -> segmentForChar(chapters[k].offset) }

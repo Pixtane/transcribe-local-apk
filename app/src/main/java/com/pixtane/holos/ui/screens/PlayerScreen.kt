@@ -88,7 +88,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.session.MediaController
-import com.pixtane.holos.VOICES
 import com.pixtane.holos.data.Recording
 import com.pixtane.holos.data.RecordingRepository
 import com.pixtane.holos.playback.PlayerBus
@@ -314,9 +313,9 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                     verticalArrangement = Arrangement.spacedBy(22.dp),
                 ) {
                     item(key = "header") {
-                        val voice = VOICES.getOrNull(rec.voice)
+                        val voiceLabel = if (rec.pack.voices.size > 1) "Voice ${rec.pack.voices.getOrNull(rec.voice)?.code ?: "?"}" else rec.pack.family
                         Text(
-                            "${rec.lang.flag}  ${rec.lang.native} · Voice ${voice?.code ?: "?"} · " +
+                            "${rec.lang.flag}  ${rec.lang.native} · $voiceLabel · " +
                                 (if (rec.chapters.isNotEmpty()) "${rec.chapters.size} chapters" else "${rec.n} sentences"),
                             style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f),
                         )

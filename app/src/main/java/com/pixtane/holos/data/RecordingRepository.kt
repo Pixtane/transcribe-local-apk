@@ -4,6 +4,9 @@ import android.content.Context
 import android.util.Log
 import com.pixtane.holos.HolosApp
 import com.pixtane.holos.Lang
+import com.pixtane.holos.Prefs
+import com.pixtane.holos.tts.EngineCatalog
+import com.pixtane.holos.tts.EnginePack
 import com.pixtane.holos.importer.Chapter
 import com.pixtane.holos.importer.ChapterDetector
 import com.pixtane.holos.tts.Seg
@@ -64,6 +67,7 @@ object RecordingRepository {
                 lang = Lang.of(m.optString("lang", "en")),
                 voice = m.optInt("voice", 0),
                 steps = m.optInt("steps", 3),
+                engineId = m.optString("engine", EngineCatalog.SUPERTONIC.id),
                 sampleRate = m.optInt("sampleRate", 22050),
                 createdAt = m.optLong("createdAt", dir.lastModified()),
                 text = text,
@@ -80,7 +84,9 @@ object RecordingRepository {
     /**
      * [chapters] offsets refer to [rawText]; null means "detect headings in the text".
      */
-    fun create(rawText: String, title: String, lang: Lang, voice: Int, steps: Int, sampleRate: Int, chapters: List<Chapter>? = null): Recording {
+    fun create(rawText: String, title: String, lang: Lang, voice: Int, steps: Int, pack: EnginePack, chapters: List<Chapter>? = null): Recording {
+        // Supertonic renders at 44.1 kHz; "compact" storage halves that. VITS is already 22.05 kHz.
+        val sampleRate = if (pack.sampleRate == 44_100 && Prefs.compactAudio) 22_050 else pack.sampleRate
         val id = "r" + System.currentTimeMillis().toString(36)
         val dir = File(root, id).apply { mkdirs() }
         val lead = rawText.length - rawText.trimStart().length
@@ -97,6 +103,7 @@ object RecordingRepository {
             .put("lang", lang.code)
             .put("voice", voice)
             .put("steps", steps)
+            .put("engine", pack.id)
             .put("sampleRate", sampleRate)
             .put("createdAt", System.currentTimeMillis())
             .put("segs", flat)
