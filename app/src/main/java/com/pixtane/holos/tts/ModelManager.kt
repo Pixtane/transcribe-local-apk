@@ -52,8 +52,8 @@ object ModelManager {
 
     /** Hugging Face repositories hosting the sherpa-onnx export, tried in order. */
     private val HF_REPOS = listOf(
-        "csukuangfj/$MODEL_ID",
         "csukuangfj2/$MODEL_ID",
+        "csukuangfj/$MODEL_ID",
         "k2-fsa/$MODEL_ID",
     )
     private const val TARBALL_URL =

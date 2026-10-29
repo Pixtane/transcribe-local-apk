@@ -1,6 +1,11 @@
 package com.pixtane.holos.ui.components
 
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -257,10 +262,11 @@ fun MiniPlayer(
 @Composable
 fun Waveform(color: Color, modifier: Modifier = Modifier, animate: Boolean = false) {
     val t = if (animate) {
-        val inf = androidx.compose.animation.core.rememberInfiniteTransition(label = "wave")
+        val inf = rememberInfiniteTransition(label = "wave")
         inf.animateFloat(
-            0f, 1f,
-            androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(900), androidx.compose.animation.core.RepeatMode.Reverse),
+            initialValue = 0f,
+            targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
             label = "wave-t",
         ).value
     } else 0.5f
