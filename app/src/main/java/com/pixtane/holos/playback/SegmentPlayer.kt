@@ -34,6 +34,7 @@ import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.compose.ui.graphics.toArgb
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.pixtane.holos.CrashReport
 import com.pixtane.holos.Prefs
 import com.pixtane.holos.data.Recording
 import com.pixtane.holos.data.RecordingRepository
@@ -210,6 +211,7 @@ class SegmentPlayer(private val context: Context) : SimpleBasePlayer(Looper.getM
             refresh(); return
         }
         Prefs.lastPlayedId = r.id
+        CrashReport.crumb("Player: load ${r.id} (${r.n} sentences, ${r.ready.value} ready)")
         var start = if (startPositionMs == C.TIME_UNSET) r.savedPositionMs else startPositionMs
         if (start >= r.totalMs() - 1500) start = 0
         engine.setRecording(r, r.msToFrames(start))
@@ -221,6 +223,7 @@ class SegmentPlayer(private val context: Context) : SimpleBasePlayer(Looper.getM
 
     private fun setPlaying(play: Boolean) {
         val r = rec
+        CrashReport.crumb("Player: playWhenReady=$play")
         if (play && r != null) {
             if (ended) {
                 ended = false
@@ -317,23 +320,23 @@ class SegmentPlayer(private val context: Context) : SimpleBasePlayer(Looper.getM
 
     private fun mediaItemFor(r: Recording) = MediaItem.Builder()
         .setMediaId(r.id)
-        .setMediaMetadata(metadataFor(r))
+        .setMediaMetadata(MediaMetadata.Builder().setTitle(r.title).build())
         .build()
 
     private fun metadataFor(r: Recording): MediaMetadata {
-        val art = artworkCache.getOrPut(r.id + r.lang.code) { artwork(r) }
+        val art = artworkCache.getOrPut(r.id + r.lang.code) { runCatching { artwork(r) }.getOrDefault(ByteArray(0)) }
         return MediaMetadata.Builder()
             .setTitle(r.title)
             .setArtist("${r.lang.flag} ${r.lang.native} · Holos")
             .setAlbumTitle("Holos")
-            .setArtworkData(art, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+            .apply { if (art.isNotEmpty()) setArtworkData(art, MediaMetadata.PICTURE_TYPE_FRONT_COVER) }
             .setIsPlayable(true)
             .setIsBrowsable(false)
             .build()
     }
 
     private fun artwork(r: Recording): ByteArray {
-        val size = 512
+        val size = 256
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -343,19 +346,19 @@ class SegmentPlayer(private val context: Context) : SimpleBasePlayer(Looper.getM
         p.shader = null
         p.color = r.lang.accent.toArgb()
         p.strokeCap = Paint.Cap.ROUND
-        p.strokeWidth = 34f
-        val heights = floatArrayOf(60f, 130f, 200f, 120f, 70f)
+        p.strokeWidth = 17f
+        val heights = floatArrayOf(30f, 65f, 100f, 60f, 35f)
         for ((k, h) in heights.withIndex()) {
-            val x = 136f + k * 60f
-            c.drawLine(x, 256f - h / 2, x, 256f + h / 2, p)
+            val x = 68f + k * 30f
+            c.drawLine(x, 128f - h / 2, x, 128f + h / 2, p)
         }
         p.color = 0xFFFFFFFF.toInt()
-        p.textSize = 54f
+        p.textSize = 27f
         p.textAlign = Paint.Align.CENTER
         p.isFakeBoldText = true
-        c.drawText(r.lang.native, 256f, 440f, p)
+        c.drawText(r.lang.native, 128f, 220f, p)
         val out = ByteArrayOutputStream()
-        bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
         bmp.recycle()
         return out.toByteArray()
     }

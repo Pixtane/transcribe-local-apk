@@ -11,6 +11,7 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
+import com.pixtane.holos.CrashReport
 import com.pixtane.holos.HolosApp
 import com.pixtane.holos.R
 import com.pixtane.holos.data.RecordingRepository
@@ -28,15 +29,26 @@ class SynthesisService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        CrashReport.crumb("SynthesisService start (action=${intent?.action})")
         if (intent?.action == ACTION_PAUSE) {
             SynthesisManager.status.value.recordingId?.let { SynthesisManager.pause(it) }
         }
-        val type = when {
-            Build.VERSION.SDK_INT >= 35 -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING
-            Build.VERSION.SDK_INT >= 29 -> ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            else -> 0
+        val types = buildList {
+            if (Build.VERSION.SDK_INT >= 35) add(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROCESSING)
+            if (Build.VERSION.SDK_INT >= 29) add(ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            if (Build.VERSION.SDK_INT < 29) add(0)
         }
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, build(SynthesisManager.status.value), type)
+        val notification = build(SynthesisManager.status.value)
+        val started = types.any { type ->
+            runCatching { ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type) }
+                .onFailure { CrashReport.crumb("startForeground(type=$type) failed: $it") }
+                .isSuccess
+        }
+        if (!started) {
+            // Generation still runs in-process; we just lose the screen-off guarantee.
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (wakeLock == null) {
             wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "holos:synthesis")

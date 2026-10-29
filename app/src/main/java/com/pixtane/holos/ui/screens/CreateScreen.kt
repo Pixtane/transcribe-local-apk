@@ -260,6 +260,8 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
                     Prefs.lastVoice = voice
                     Prefs.steps = steps
                     scope.launch {
+                      try {
+                        com.pixtane.holos.CrashReport.crumb("Create: ${text.length} chars, lang=${lang.code}, voice=$voice, steps=$steps")
                         val rec = withContext(Dispatchers.IO) {
                             RecordingRepository.create(
                                 text = text.trim(),
@@ -277,6 +279,13 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
                         SynthesisManager.enqueue(rec.id, front = true)
                         PlayerActions.play(controller, rec.id)
                         nav.replace(Screen.Player(rec.id))
+                      } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                      } catch (e: Throwable) {
+                        com.pixtane.holos.CrashReport.crumb("Create failed: $e")
+                        error = "Could not start: ${e.message ?: e.javaClass.simpleName}"
+                        creating = false
+                      }
                     }
                 },
             )

@@ -6,6 +6,7 @@ import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsSupertonicModelConfig
+import com.pixtane.holos.CrashReport
 import com.pixtane.holos.HolosApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,6 +30,8 @@ object EnginePool {
     private const val IDLE_RELEASE_MS = 90_000L
 
     private val mutex = Mutex()
+    /** Engines are created one at a time: loading several models at once spikes memory. */
+    private val createMutex = Mutex()
     private val available = ArrayDeque<OfflineTts>()
     private val threadsOf = HashMap<OfflineTts, Int>()
     private var created = 0
@@ -67,9 +70,13 @@ object EnginePool {
                 val threadCount = mutex.withLock { threads }
                 return try {
                     withContext(Dispatchers.IO) {
-                        val t = OfflineTts(config = buildConfig(threadCount))
-                        mutex.withLock { threadsOf[t] = threadCount }
-                        t
+                        createMutex.withLock {
+                            CrashReport.crumb("Creating engine (threads=$threadCount)")
+                            val t = OfflineTts(config = buildConfig(threadCount))
+                            CrashReport.crumb("Engine ready")
+                            mutex.withLock { threadsOf[t] = threadCount }
+                            t
+                        }
                     }
                 } catch (e: Throwable) {
                     withContext(NonCancellable) { mutex.withLock { created--; borrowed-- } }

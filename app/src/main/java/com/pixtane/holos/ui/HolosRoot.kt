@@ -18,6 +18,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.pixtane.holos.CrashReport
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaController
 import com.pixtane.holos.ui.screens.CreateScreen
@@ -78,6 +82,12 @@ fun HolosRoot(controller: MediaController?, sharedText: String?, onSharedTextCon
         }
     }
     BackHandler(enabled = nav.stack.size > 1) { nav.pop() }
+    val context = LocalContext.current
+    var crash by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        crash = withContext(Dispatchers.IO) { CrashReport.takeReport(context) }
+    }
+    crash?.let { report -> CrashDialog(report) { crash = null } }
     Box(Modifier.fillMaxSize().background(HolosColors.Bg)) {
         AnimatedContent(
             targetState = nav.current,
@@ -97,3 +107,4 @@ fun HolosRoot(controller: MediaController?, sharedText: String?, onSharedTextCon
         }
     }
 }
+

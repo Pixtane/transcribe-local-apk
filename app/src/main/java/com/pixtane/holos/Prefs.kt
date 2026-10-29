@@ -20,7 +20,7 @@ object Prefs {
 
     /** Number of TTS engine instances generating sentences in parallel. */
     var workers: Int
-        get() = sp.getInt("workers", (cores / 2).coerceIn(1, 4))
+        get() = sp.getInt("workers", (cores / 2 - 1).coerceIn(1, 3))
         set(v) = sp.edit().putInt("workers", v).apply()
 
     var threadsPerWorker: Int

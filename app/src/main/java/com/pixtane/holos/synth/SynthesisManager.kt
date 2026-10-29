@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.pixtane.holos.CrashReport
 import com.pixtane.holos.HolosApp
 import com.pixtane.holos.Prefs
 import com.pixtane.holos.data.Recording
@@ -130,6 +131,7 @@ object SynthesisManager {
 
     private suspend fun generate(rec: Recording) {
         val workers = Prefs.workers
+        CrashReport.crumb("Start generating ${rec.id}: ${rec.n} sentences, $workers engines, ${rec.steps} steps")
         EnginePool.configure(workers, Prefs.threadsPerWorker)
         val inProgress = HashSet<Int>()
         val lock = Any()
@@ -154,6 +156,7 @@ object SynthesisManager {
                                 EnginePool.withEngine { tts ->
                                     startedAt.compareAndSet(0, SystemClock.elapsedRealtime())
                                     val text = rec.ttsText(i)
+                                    CrashReport.crumb("Generating sentence $i (${text.length} chars)")
                                     val raw = EnginePool.generate(tts, text, rec.lang.code, rec.voice, rec.steps)
                                     // An empty result (e.g. text with nothing pronounceable) becomes a short pause.
                                     val samples = if (raw.isEmpty()) raw else if (rec.sampleRate == EnginePool.MODEL_SAMPLE_RATE) raw else Dsp.decimate2(raw)
@@ -164,6 +167,7 @@ object SynthesisManager {
                                     tmp.writeBytes(pcm)
                                     tmp.renameTo(dest)
                                     rec.markReady(i, (pcm.size / 2).toLong())
+                                    CrashReport.crumb("Saved sentence $i")
                                     chars.addAndGet(text.length.toLong())
                                 }
                             } catch (e: CancellationException) {
@@ -187,6 +191,7 @@ object SynthesisManager {
             Log.i(TAG, "Generation of ${rec.id} paused")
         } catch (e: Throwable) {
             Log.e(TAG, "Generation failed", e)
+            CrashReport.crumb("Generation failed: $e")
             lastError = e.message ?: e.javaClass.simpleName
             _paused.value = _paused.value + rec.id
         }

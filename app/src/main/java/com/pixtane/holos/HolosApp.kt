@@ -16,6 +16,7 @@ class HolosApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        CrashReport.install(this)
         Prefs.init(this)
         ModelManager.init(this)
         RecordingRepository.init(this)
