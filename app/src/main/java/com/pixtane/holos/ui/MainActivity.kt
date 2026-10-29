@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private val controller = mutableStateOf<MediaController?>(null)
     private val sharedText = mutableStateOf<String?>(null)
+    private val sharedUri = mutableStateOf<String?>(null)
 
     private val notifPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -44,7 +45,8 @@ class MainActivity : ComponentActivity() {
                 HolosRoot(
                     controller = controller.value,
                     sharedText = sharedText.value,
-                    onSharedTextConsumed = { sharedText.value = null },
+                    sharedUri = sharedUri.value,
+                    onSharedTextConsumed = { sharedText.value = null; sharedUri.value = null },
                 )
             }
         }
@@ -56,8 +58,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("text/") == true) {
-            intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }?.let { sharedText.value = it }
+        when (intent?.action) {
+            Intent.ACTION_SEND -> {
+                @Suppress("DEPRECATION")
+                val stream = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
+                if (stream != null) sharedUri.value = stream.toString()
+                else intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }?.let { sharedText.value = it }
+            }
+            Intent.ACTION_VIEW -> intent.data?.let { sharedUri.value = it.toString() }
         }
     }
 

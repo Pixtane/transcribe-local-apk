@@ -33,6 +33,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.MoreVert
@@ -248,6 +250,8 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
     }
 
     var menu by remember { mutableStateOf(false) }
+    var showChapters by remember { mutableStateOf(false) }
+    val chapterIdx by remember { derivedStateOf { rec.chapterAt(curSeg) } }
     var confirmDelete by remember { mutableStateOf(false) }
 
     Box(
@@ -261,7 +265,21 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                 IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
                 Column(Modifier.weight(1f)) {
                     Text("NOW READING", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f), letterSpacing = 1.5.sp)
-                    Text(rec.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(rec.title, style = MaterialTheme.typography.titleMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (chapterIdx >= 0) {
+                        Text(
+                            rec.chapters[chapterIdx].title,
+                            style = MaterialTheme.typography.labelMedium, color = accent,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.clickable { showChapters = true },
+                        )
+                    }
+                }
+                IconButton(onClick = { showChapters = true }) {
+                    Icon(
+                        if (rec.chapters.isEmpty()) Icons.Rounded.Search else Icons.AutoMirrored.Rounded.List,
+                        if (rec.chapters.isEmpty()) "Search" else "Chapters", tint = Color.White,
+                    )
                 }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, "More") }
@@ -298,7 +316,8 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                     item(key = "header") {
                         val voice = VOICES.getOrNull(rec.voice)
                         Text(
-                            "${rec.lang.flag}  ${rec.lang.native} · Voice ${voice?.code ?: "?"} · ${rec.n} sentences",
+                            "${rec.lang.flag}  ${rec.lang.native} · Voice ${voice?.code ?: "?"} · " +
+                                (if (rec.chapters.isNotEmpty()) "${rec.chapters.size} chapters" else "${rec.n} sentences"),
                             style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.55f),
                         )
                     }
@@ -385,6 +404,13 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                 }
             }
         }
+    }
+
+    if (showChapters) {
+        ChaptersSheet(
+            rec = rec, currentSeg = curSeg, ready = ready, accent = accent,
+            onJump = { playSentence(it) }, onDismiss = { showChapters = false },
+        )
     }
 
     if (confirmDelete) {

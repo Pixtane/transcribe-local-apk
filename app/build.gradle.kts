@@ -87,4 +87,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.apache.commons:commons-compress:1.27.1")
+
+    // Document import: PDF text extraction and (X)HTML parsing for EPUB / MOBI.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("org.jsoup:jsoup:1.18.1")
 }

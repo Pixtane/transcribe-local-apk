@@ -32,7 +32,7 @@ import com.pixtane.holos.ui.theme.HolosColors
 
 sealed interface Screen {
     data object Library : Screen
-    data class Create(val text: String = "") : Screen
+    data class Create(val text: String = "", val uri: String? = null) : Screen
     data class Player(val id: String) : Screen
     data object Settings : Screen
 }
@@ -73,11 +73,11 @@ object PlayerActions {
 }
 
 @Composable
-fun HolosRoot(controller: MediaController?, sharedText: String?, onSharedTextConsumed: () -> Unit) {
+fun HolosRoot(controller: MediaController?, sharedText: String?, sharedUri: String?, onSharedTextConsumed: () -> Unit) {
     val nav = remember { Nav(Screen.Library) }
-    LaunchedEffect(sharedText) {
-        if (sharedText != null) {
-            nav.push(Screen.Create(sharedText))
+    LaunchedEffect(sharedText, sharedUri) {
+        if (sharedText != null || sharedUri != null) {
+            nav.push(Screen.Create(sharedText ?: "", sharedUri))
             onSharedTextConsumed()
         }
     }
@@ -100,7 +100,7 @@ fun HolosRoot(controller: MediaController?, sharedText: String?, onSharedTextCon
         ) { screen ->
             when (screen) {
                 Screen.Library -> LibraryScreen(nav, controller)
-                is Screen.Create -> CreateScreen(nav, controller, screen.text)
+                is Screen.Create -> CreateScreen(nav, controller, screen.text, screen.uri)
                 is Screen.Player -> PlayerScreen(nav, controller, screen.id)
                 Screen.Settings -> SettingsScreen(nav)
             }

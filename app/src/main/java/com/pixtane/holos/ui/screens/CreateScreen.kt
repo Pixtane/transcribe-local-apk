@@ -52,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +64,8 @@ import com.pixtane.holos.Lang
 import com.pixtane.holos.Prefs
 import com.pixtane.holos.VOICES
 import com.pixtane.holos.data.RecordingRepository
+import com.pixtane.holos.importer.DocumentImporter
+import com.pixtane.holos.importer.ImportedDoc
 import com.pixtane.holos.synth.SynthesisManager
 import com.pixtane.holos.tts.EnginePool
 import com.pixtane.holos.tts.ModelManager
@@ -87,7 +90,7 @@ import java.util.Locale
 val QUALITY_PRESETS = listOf(2 to "Fast", 3 to "Balanced", 5 to "Best")
 
 @Composable
-fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
+fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, initialUri: String? = null) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
@@ -102,23 +105,45 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
     var previewing by remember { mutableStateOf(false) }
     var creating by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Imported books can be huge, so they are not put into the (saveable) text field.
+    var imported by remember { mutableStateOf<ImportedDoc?>(null) }
+    var importing by remember { mutableStateOf<String?>(null) }
+
+    fun importUri(uri: Uri) {
+        error = null
+        importing = "Opening…"
+        scope.launch {
+            try {
+                val doc = withContext(Dispatchers.IO) {
+                    DocumentImporter.import(context, uri) { msg -> importing = msg }
+                }
+                if (doc.text.isBlank()) {
+                    error = "No readable text found in this file"
+                } else if (doc.chapters.isEmpty() && doc.text.length <= 30_000) {
+                    text = doc.text; imported = null
+                } else {
+                    imported = doc
+                }
+                if (title.isBlank()) title = doc.title
+                if (!langTouched) (doc.language?.let { code -> Lang.entries.firstOrNull { code.startsWith(it.code) } } ?: Lang.detect(doc.text))?.let { lang = it }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                com.pixtane.holos.CrashReport.crumb("Import failed: $e")
+                error = "Could not import: ${e.message ?: e.javaClass.simpleName}"
+            } finally {
+                importing = null
+            }
+        }
+    }
+    LaunchedEffect(initialUri) { initialUri?.let { importUri(Uri.parse(it)) } }
 
     LaunchedEffect(text) {
         if (!langTouched) Lang.detect(text)?.let { lang = it }
     }
 
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) scope.launch {
-            val loaded = withContext(Dispatchers.IO) {
-                runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } }.getOrNull()
-            }
-            if (loaded.isNullOrBlank()) error = "Could not read that file" else {
-                text = loaded
-                if (title.isBlank()) {
-                    title = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: ""
-                }
-            }
-        }
+        if (uri != null) importUri(uri)
     }
 
     Column(
@@ -149,14 +174,19 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
                 colors = fieldColors(),
             )
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
-                value = text, onValueChange = { text = it },
-                placeholder = { Text("Paste or type the text to read aloud…") },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 420.dp),
-                shape = RoundedCornerShape(20.dp),
-                colors = fieldColors(),
-                textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
-            )
+            val doc = imported
+            when {
+                importing != null -> ImportProgress(importing!!)
+                doc != null -> DocumentCard(doc, onRemove = { imported = null })
+                else -> OutlinedTextField(
+                    value = text, onValueChange = { text = it },
+                    placeholder = { Text("Paste or type the text to read aloud, or import a PDF, EPUB, MOBI or TXT file…") },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 420.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = fieldColors(),
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
+                )
+            }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AssistChip(
@@ -166,19 +196,19 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
                     colors = chipColors(),
                 )
                 AssistChip(
-                    onClick = { importer.launch(arrayOf("text/*")) },
-                    label = { Text("Import .txt") },
+                    onClick = { importer.launch(DocumentImporter.MIME_TYPES) },
+                    label = { Text("Import PDF · EPUB · MOBI · TXT") },
                     leadingIcon = { Icon(Icons.Rounded.Description, null, Modifier.size(18.dp)) },
                     colors = chipColors(),
                 )
-                if (text.isNotEmpty()) AssistChip(
-                    onClick = { text = "" },
+                if (text.isNotEmpty() || imported != null) AssistChip(
+                    onClick = { text = ""; imported = null },
                     label = { Text("Clear") },
                     leadingIcon = { Icon(Icons.Rounded.Clear, null, Modifier.size(18.dp)) },
                     colors = chipColors(),
                 )
             }
-            Stats(text)
+            Stats(imported?.text ?: text)
 
             Spacer(Modifier.height(20.dp))
             SectionLabel("Language")
@@ -247,7 +277,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
         }
 
         Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
-            val canCreate = text.isNotBlank() && model == ModelManager.State.Ready && !creating
+            val canCreate = (imported != null || text.isNotBlank()) && importing == null && model == ModelManager.State.Ready && !creating
             GradientButton(
                 text = if (creating) "Preparing…" else "Create & play",
                 enabled = canCreate,
@@ -261,13 +291,16 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String) {
                     Prefs.steps = steps
                     scope.launch {
                       try {
-                        com.pixtane.holos.CrashReport.crumb("Create: ${text.length} chars, lang=${lang.code}, voice=$voice, steps=$steps")
+                        val doc = imported
+                        val body = doc?.text ?: text
+                        com.pixtane.holos.CrashReport.crumb("Create: ${body.length} chars, lang=${lang.code}, voice=$voice, steps=$steps")
                         val rec = withContext(Dispatchers.IO) {
                             RecordingRepository.create(
-                                text = text.trim(),
-                                title = title.trim().ifBlank { RecordingRepository.suggestTitle(text) },
+                                rawText = body,
+                                title = title.trim().ifBlank { RecordingRepository.suggestTitle(body) },
                                 lang = lang, voice = voice, steps = steps,
                                 sampleRate = if (Prefs.compactAudio) EnginePool.MODEL_SAMPLE_RATE / 2 else EnginePool.MODEL_SAMPLE_RATE,
+                                chapters = doc?.chapters,
                             )
                         }
                         if (rec.n == 0) {
@@ -333,3 +366,58 @@ private fun chipColors() = AssistChipDefaults.assistChipColors(
     labelColor = HolosColors.Text,
     leadingIconContentColor = HolosColors.Violet,
 )
+
+@Composable
+private fun ImportProgress(message: String) {
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(20.dp), color = HolosColors.Surface,
+        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+    ) {
+        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            CircularProgressIndicator(color = HolosColors.Violet)
+            Spacer(Modifier.height(14.dp))
+            Text(message, style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted)
+        }
+    }
+}
+
+@Composable
+private fun DocumentCard(doc: ImportedDoc, onRemove: () -> Unit) {
+    androidx.compose.material3.Surface(
+        shape = RoundedCornerShape(20.dp), color = HolosColors.Surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, HolosColors.Outline),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(HolosColors.accentBrush),
+                    contentAlignment = Alignment.Center,
+                ) { Text(doc.format.take(4), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold) }
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(doc.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    Text(
+                        buildString {
+                            append(doc.format)
+                            if (doc.chapters.isNotEmpty()) append(" · ${doc.chapters.size} chapters")
+                        },
+                        style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
+                    )
+                }
+                IconButton(onClick = onRemove) { Icon(Icons.Rounded.Clear, "Remove") }
+            }
+            if (doc.chapters.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                for (c in doc.chapters.take(6)) {
+                    Text("•  ${c.title}", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+                if (doc.chapters.size > 6) Text("…and ${doc.chapters.size - 6} more", style = MaterialTheme.typography.bodySmall, color = HolosColors.Faint)
+            } else {
+                Spacer(Modifier.height(10.dp))
+                Text(doc.text.take(280).replace('\n', ' ') + "…", style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, maxLines = 4)
+            }
+        }
+    }
+}

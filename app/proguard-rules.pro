@@ -10,4 +10,11 @@
 -dontwarn org.osgi.**
 -dontwarn javax.annotation.**
 -dontwarn com.google.errorprone.annotations.**
+# PdfBox-Android loads fonts/encodings reflectively and from bundled resources.
+-keep class com.tom_roush.** { *; }
+-dontwarn com.tom_roush.**
+-dontwarn com.gemalto.jp2.**
+-dontwarn org.bouncycastle.**
+# jsoup optional regex engine
+-dontwarn com.google.re2j.**
 -ignorewarnings

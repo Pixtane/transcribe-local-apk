@@ -1,6 +1,7 @@
 package com.pixtane.holos.data
 
 import com.pixtane.holos.Lang
+import com.pixtane.holos.importer.Chapter
 import com.pixtane.holos.tts.Seg
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,8 +26,12 @@ class Recording(
     val createdAt: Long,
     val text: String,
     val segs: List<Seg>,
+    val chapters: List<Chapter> = emptyList(),
 ) {
     val n = segs.size
+
+    /** First sentence of each chapter. */
+    val chapterSeg: IntArray = IntArray(chapters.size) { k -> segmentForChar(chapters[k].offset) }
 
     @Volatile var title: String = title
         internal set
@@ -38,6 +43,7 @@ class Recording(
 
     @Volatile private var prefixCache: LongArray = LongArray(n + 1)
     @Volatile private var prefixVersion = -1
+    @Volatile private var fpcCache = 0.0
 
     private val segDir = File(dir, "seg")
 
@@ -82,7 +88,27 @@ class Recording(
 
     fun estimatedFrames(i: Int): Long {
         val fr = frames.get(i)
-        return if (fr >= 0) fr else (segs[i].length * framesPerChar()).toLong() + silenceFrames(i)
+        if (fr >= 0) return fr
+        prefix()
+        return (segs[i].length * fpcCache).toLong() + silenceFrames(i)
+    }
+
+    /** Sentence containing (or following) character [offset]. */
+    fun segmentForChar(offset: Int): Int {
+        if (n == 0) return 0
+        var lo = 0; var hi = n - 1
+        while (lo < hi) {
+            val mid = (lo + hi) ushr 1
+            if (segs[mid].end <= offset) lo = mid + 1 else hi = mid
+        }
+        return lo
+    }
+
+    /** Index of the chapter containing sentence [seg], or -1. */
+    fun chapterAt(seg: Int): Int {
+        var res = -1
+        for (k in chapterSeg.indices) if (chapterSeg[k] <= seg) res = k else break
+        return res
     }
 
     /** Prefix sums of (actual or estimated) frames: prefix[i] = start frame of sentence i. */
@@ -90,6 +116,7 @@ class Recording(
         val v = _ready.value
         if (v != prefixVersion) {
             val fpc = framesPerChar()
+            fpcCache = fpc
             val p = LongArray(n + 1)
             for (i in 0 until n) {
                 val fr = frames.get(i)

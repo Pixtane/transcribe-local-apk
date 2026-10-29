@@ -1,9 +1,11 @@
 package com.pixtane.holos.ui.theme
 
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -63,5 +65,9 @@ val LyricsStyle = TextStyle(fontSize = 23.sp, lineHeight = 34.sp, fontWeight = F
 
 @Composable
 fun HolosTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = scheme, typography = typography, content = content)
+    MaterialTheme(colorScheme = scheme, typography = typography) {
+        // Text and icons placed directly on our dark backgrounds (not inside a Surface)
+        // would otherwise fall back to black.
+        CompositionLocalProvider(LocalContentColor provides HolosColors.Text, content = content)
+    }
 }

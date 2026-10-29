@@ -14,7 +14,8 @@ sherpa-onnx GitHub release as fallback); after that no internet is needed.
 - **Lyrics-style reading view**, as in YouTube Music: past, current and upcoming text are styled differently and the current sentence is highlighted word by word. The view auto-scrolls; tap any sentence to jump there.
 - **Playback speed** 0.75×–2.5× (pitch-preserving Sonic time-stretch).
 - **Library** of saved recordings with generation and listening progress, rename and delete.
-- Import `.txt`, paste, or share text into the app from any other app.
+- **Import PDF, EPUB, MOBI/AZW/PRC, TXT, Markdown and HTML**, or share/open files and text from other apps.
+- **Chapters** come from the EPUB table of contents, PDF bookmarks, MOBI TOC links, or headings like "Chapter 3" / "Розділ 2" / "Kapitel 1". The player shows the current chapter. Its chapter sheet searches chapter titles and the full text, and jumps to any hit.
 - Edge-to-edge UI padded for the camera cutout/notch and system bars.
 - Built-in **speed test** in Settings: it measures characters per second and estimates the time for 10 pages.
 
@@ -69,6 +70,7 @@ It protects nothing secret: do not reuse it for anything else.
 tts/ModelManager      download + verify model (HF per-file, GitHub tarball fallback)
 tts/EnginePool        pool of sherpa-onnx OfflineTts instances (one per worker)
 tts/TextSegmenter     sentence/clause splitting with exact character offsets
+importer/             PDF (PdfBox), EPUB, MOBI (PalmDOC + HUFF/CDIC) readers, chapter detection
 synth/SynthesisManager  priority-ordered parallel generation, per-sentence atomic saves
 synth/SynthesisService  foreground service + wake lock while generating
 playback/SegmentPlayer  Media3 SimpleBasePlayer over AudioTrack, one continuous timeline

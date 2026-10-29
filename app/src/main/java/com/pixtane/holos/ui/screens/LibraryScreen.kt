@@ -273,12 +273,12 @@ private fun RecordingCard(rec: Recording, isCurrent: Boolean, isPlaying: Boolean
                     Text(rec.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = rec.text.take(140).replace('\n', ' '),
+                        text = (if (rec.chapters.isNotEmpty()) "${rec.chapters.size} chapters · " else "") + rec.text.take(140).replace('\n', ' '),
                         style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
                         maxLines = 2, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                IconButton(onClick = onMenu) { Icon(Icons.Rounded.MoreVert, "More", tint = HolosColors.Faint) }
+                IconButton(onClick = onMenu) { Icon(Icons.Rounded.MoreVert, "More", tint = HolosColors.Muted) }
             }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

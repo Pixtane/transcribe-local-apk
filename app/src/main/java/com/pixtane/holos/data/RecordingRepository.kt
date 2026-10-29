@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.pixtane.holos.HolosApp
 import com.pixtane.holos.Lang
+import com.pixtane.holos.importer.Chapter
+import com.pixtane.holos.importer.ChapterDetector
 import com.pixtane.holos.tts.Seg
 import com.pixtane.holos.tts.TextSegmenter
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +50,13 @@ object RecordingRepository {
             while (i + 2 < arr.length()) {
                 segs.add(Seg(arr.getInt(i), arr.getInt(i + 1), arr.getInt(i + 2) == 1)); i += 3
             }
+            val chapters = ArrayList<Chapter>()
+            m.optJSONArray("chapters")?.let { ca ->
+                for (k in 0 until ca.length()) {
+                    val e = ca.getJSONArray(k)
+                    chapters.add(Chapter(e.getString(0), e.getInt(1)))
+                }
+            }
             val rec = Recording(
                 dir = dir,
                 id = id,
@@ -59,6 +68,7 @@ object RecordingRepository {
                 createdAt = m.optLong("createdAt", dir.lastModified()),
                 text = text,
                 segs = segs,
+                chapters = chapters,
             )
             cache.putIfAbsent(id, rec) ?: rec
         } catch (e: Exception) {
@@ -67,9 +77,17 @@ object RecordingRepository {
         }
     }
 
-    fun create(text: String, title: String, lang: Lang, voice: Int, steps: Int, sampleRate: Int): Recording {
+    /**
+     * [chapters] offsets refer to [rawText]; null means "detect headings in the text".
+     */
+    fun create(rawText: String, title: String, lang: Lang, voice: Int, steps: Int, sampleRate: Int, chapters: List<Chapter>? = null): Recording {
         val id = "r" + System.currentTimeMillis().toString(36)
         val dir = File(root, id).apply { mkdirs() }
+        val lead = rawText.length - rawText.trimStart().length
+        val text = rawText.trim()
+        val chs = (chapters?.map { it.copy(offset = it.offset - lead) } ?: ChapterDetector.detect(text))
+            .filter { it.offset in 0 until text.length && it.title.isNotBlank() }
+            .sortedBy { it.offset }.distinctBy { it.offset }
         val segs = TextSegmenter.split(text)
         File(dir, "text.txt").writeText(text)
         val flat = JSONArray()
@@ -81,7 +99,8 @@ object RecordingRepository {
             .put("steps", steps)
             .put("sampleRate", sampleRate)
             .put("createdAt", System.currentTimeMillis())
-            .put("segs", flat))
+            .put("segs", flat)
+            .put("chapters", JSONArray().apply { for (c in chs) put(JSONArray().put(c.title).put(c.offset)) }))
         val rec = get(id) ?: error("Could not create recording")
         refresh()
         return rec
