@@ -9,6 +9,10 @@ on:
         description: "Publish this build as the latest release (phones auto-update to it)"
         type: boolean
         default: true
+      notes:
+        description: "What's new (shown to users in the update banner). Empty = last commit message."
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -84,10 +88,13 @@ jobs:
         if: ${{ vars.PUBLISH_APK_RELEASES != 'false' && (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
         env:
           GH_TOKEN: ${{ github.token }}
+          NOTES_INPUT: ${{ inputs.notes }}
         run: |
+          NOTES="$NOTES_INPUT"
+          [ -z "$NOTES" ] && NOTES="$(git log -1 --pretty=%B | grep -v -E "^(Co-Authored-By|Claude-Session):" | head -n 12)"
           TAG="v${{ steps.apk.outputs.version }}"
           gh release create "$TAG" out/*.apk \
             --target "${{ github.sha }}" \
             --title "Holos ${{ steps.apk.outputs.version }}" \
-            --notes "$(git log -1 --pretty=%B | grep -v -E "^(Co-Authored-By|Claude-Session):" | head -n 12)" \
+            --notes "$NOTES" \
             --latest
