@@ -95,21 +95,25 @@ import java.util.Locale
 val QUALITY_PRESETS: List<Pair<Int, String>> get() = listOf(2 to t("Fast", "Швидко"), 3 to t("Balanced", "Баланс"), 5 to t("Best", "Найкраще"))
 
 @Composable
-fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, initialUri: String? = null) {
+fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, initialUri: String? = null, duplicateOf: String? = null) {
+    // Duplicating starts from a copy of an existing recording's settings and text.
+    val source = remember(duplicateOf) { duplicateOf?.let { RecordingRepository.get(it) } }
+    val sourceInField = source != null && source.chapters.isEmpty() && source.text.length <= 30_000
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val engineChanges by ModelManager.changes.collectAsStateWithLifecycle()
 
-    var text by rememberSaveable { mutableStateOf(initialText) }
-    var title by rememberSaveable { mutableStateOf("") }
-    var langCode by rememberSaveable { mutableStateOf(Prefs.lastLang) }
+    var text by rememberSaveable { mutableStateOf(if (sourceInField) source!!.text else initialText) }
+    var title by rememberSaveable { mutableStateOf(source?.let { t("${it.title} (copy)", "${it.title} (копія)") } ?: "") }
+    var langCode by rememberSaveable { mutableStateOf(source?.lang?.code ?: Prefs.lastLang) }
     val lang = Lang.of(langCode)
     var showLanguages by remember { mutableStateOf(false) }
     val packs = remember(langCode) { EngineCatalog.forLang(langCode) }
     var packId by rememberSaveable(langCode) {
         mutableStateOf(
-            Prefs.engineFor(langCode)?.takeIf { id -> packs.any { it.id == id } }
+            source?.engineId?.takeIf { id -> source.lang.code == langCode && packs.any { it.id == id } }
+                ?: Prefs.engineFor(langCode)?.takeIf { id -> packs.any { it.id == id } }
                 ?: packs.firstOrNull { ModelManager.isReady(it) }?.id
                 ?: packs.firstOrNull()?.id ?: EngineCatalog.SUPERTONIC.id
         )
@@ -117,15 +121,20 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
     val pack = EngineCatalog.get(packId)
     val packState by ModelManager.state(pack).collectAsStateWithLifecycle()
     val model = packState
-    var langTouched by rememberSaveable { mutableStateOf(false) }
-    var voice by rememberSaveable { mutableIntStateOf(Prefs.lastVoice) }
-    var steps by rememberSaveable { mutableIntStateOf(Prefs.steps) }
+    var langTouched by rememberSaveable { mutableStateOf(source != null) }
+    var voice by rememberSaveable { mutableIntStateOf(source?.voice ?: Prefs.lastVoice) }
+    var steps by rememberSaveable { mutableIntStateOf(source?.steps ?: Prefs.steps) }
     var previewing by remember { mutableStateOf(false) }
     var creating by remember { mutableStateOf(false) }
-    var smartMode by rememberSaveable { mutableStateOf(false) }
+    var smartMode by rememberSaveable { mutableStateOf(source?.smart ?: false) }
     var error by remember { mutableStateOf<String?>(null) }
     // Imported books can be huge, so they are not put into the (saveable) text field.
-    var imported by remember { mutableStateOf<ImportedDoc?>(null) }
+    var imported by remember {
+        mutableStateOf(
+            if (source != null && !sourceInField) ImportedDoc(source.title, source.text, source.chapters, t("Copy", "Копія"), source.lang.code)
+            else null
+        )
+    }
     var importing by remember { mutableStateOf<String?>(null) }
 
     fun importUri(uri: Uri) {
@@ -174,7 +183,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
     ) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { VoicePreview.stop(); nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, t("Back", "Назад")) }
-            Text(t("New recording", "Новий запис"), style = MaterialTheme.typography.titleLarge)
+            Text(if (source != null) t("Duplicate recording", "Дублювати запис") else t("New recording", "Новий запис"), style = MaterialTheme.typography.titleLarge)
         }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)

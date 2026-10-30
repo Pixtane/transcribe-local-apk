@@ -10,6 +10,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
@@ -149,6 +151,11 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                                 onClick = { renaming = rec; menuFor = null },
                             )
                             DropdownMenuItem(
+                                text = { Text(t("Duplicate", "Дублювати")) },
+                                leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
+                                onClick = { menuFor = null; nav.push(Screen.Create(duplicateOf = rec.id)) },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(t("Delete", "Видалити"), color = HolosColors.Danger) },
                                 leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = HolosColors.Danger) },
                                 onClick = { deleting = rec; menuFor = null },
@@ -250,7 +257,7 @@ private fun EmptyState(onCreate: () -> Unit, enabled: Boolean) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun RecordingCard(rec: Recording, isCurrent: Boolean, isPlaying: Boolean, onOpen: () -> Unit, onMenu: () -> Unit) {
     val ready by rec.ready.collectAsState()
@@ -289,8 +296,13 @@ private fun RecordingCard(rec: Recording, isCurrent: Boolean, isPlaying: Boolean
                 IconButton(onClick = onMenu) { Icon(Icons.Rounded.MoreVert, t("More", "Більше"), tint = HolosColors.Muted) }
             }
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(end = 12.dp),
+            ) {
                 Pill(rec.lang.uiName(), rec.lang.accent)
+                Pill(voiceTag(rec), if (rec.pack.voices.size > 1 && rec.pack.voices.getOrNull(rec.voice)?.code?.startsWith("F") == true) HolosColors.Pink else HolosColors.Violet)
                 Pill((if (complete) "" else "~") + formatHuman(totalMs), HolosColors.Violet)
                 when {
                     complete -> Pill(t("Ready", "Готово"), HolosColors.Success)
@@ -299,11 +311,10 @@ private fun RecordingCard(rec: Recording, isCurrent: Boolean, isPlaying: Boolean
                     rec.id in pausedSet -> Pill(t("Paused ${ready * 100 / rec.n.coerceAtLeast(1)}%", "Пауза ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Muted)
                     else -> Pill(t("${ready * 100 / rec.n.coerceAtLeast(1)}% generated", "Згенеровано ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Muted)
                 }
-                Spacer(Modifier.weight(1f))
                 Text(
                     DateFormat.getDateInstance(DateFormat.SHORT, if (UiLang.isUk) java.util.Locale("uk") else java.util.Locale.ENGLISH).format(Date(rec.createdAt)),
                     style = MaterialTheme.typography.labelSmall, color = HolosColors.Faint,
-                    modifier = Modifier.padding(end = 12.dp),
+                    modifier = Modifier.align(Alignment.CenterVertically),
                 )
             }
             if (!complete || listened > 0) {
@@ -320,4 +331,12 @@ private fun RecordingCard(rec: Recording, isCurrent: Boolean, isPlaying: Boolean
             }
         }
     }
+}
+
+/** "F2 · Жін." for Supertonic voices, the engine name for single-voice engines. */
+private fun voiceTag(rec: Recording): String {
+    val v = rec.pack.voices.getOrNull(rec.voice)
+    if (rec.pack.voices.size <= 1 || v == null) return rec.pack.family
+    val female = v.code.startsWith("F")
+    return v.code + " · " + if (female) t("Female", "Жін.") else t("Male", "Чол.")
 }

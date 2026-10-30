@@ -32,7 +32,7 @@ import com.pixtane.holos.ui.theme.HolosColors
 
 sealed interface Screen {
     data object Library : Screen
-    data class Create(val text: String = "", val uri: String? = null) : Screen
+    data class Create(val text: String = "", val uri: String? = null, val duplicateOf: String? = null) : Screen
     data class Player(val id: String) : Screen
     data object Settings : Screen
 }
@@ -100,7 +100,7 @@ fun HolosRoot(controller: MediaController?, sharedText: String?, sharedUri: Stri
         ) { screen ->
             when (screen) {
                 Screen.Library -> LibraryScreen(nav, controller)
-                is Screen.Create -> CreateScreen(nav, controller, screen.text, screen.uri)
+                is Screen.Create -> CreateScreen(nav, controller, screen.text, screen.uri, screen.duplicateOf)
                 is Screen.Player -> PlayerScreen(nav, controller, screen.id)
                 Screen.Settings -> SettingsScreen(nav)
             }
