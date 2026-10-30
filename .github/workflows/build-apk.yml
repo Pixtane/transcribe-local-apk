@@ -74,7 +74,8 @@ jobs:
         run: |
           VERSION="1.1.${{ github.run_number }}"
           mkdir -p out
-          cp app/build/outputs/apk/github/release/app-github-release.apk "out/Holos-$VERSION.apk"
+          # Constant name: https://github.com/<repo>/releases/latest/download/Holos.apk always gets the newest.
+          cp app/build/outputs/apk/github/release/app-github-release.apk "out/Holos.apk"
           ls -lh out
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
