@@ -81,7 +81,8 @@ Then go to **Setup → App signing** and keep **Play App Signing** (Google holds
 
 Before you can publish to Production, you must run a **closed test with at least 12 testers, opted in continuously for 14 days**:
 1. Testing → **Closed testing** → create track → upload `app-release.aab` → add testers (an email list or Google Group) → roll out.
-2. Send testers the opt-in link. They install from Play (paid apps are free for testers on a testing track).
+2. Send testers the opt-in link. ⚠️ On closed tracks testers **must buy a paid app** too. Give them free copies with **promo codes**: Monetize → Promotions → **Create promotion** → promo code, for "Holos" (paid apps get up to 500 codes per quarter). Each tester redeems a code in the Play Store and then installs from the opt-in link.
+   - Ideal testers: 15–20 students from the uni chat (a few extra in case some drop out). They must stay opted in and keep the app installed for 14 days, and should actually open it now and then.
 3. After 14 days with ≥12 testers, **Apply for production access** in the dashboard and answer the questions about your testing.
 
 Organization accounts skip this step and can go straight to Production.
