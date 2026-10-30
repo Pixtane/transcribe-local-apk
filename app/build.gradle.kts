@@ -8,7 +8,9 @@ val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 // Minutes since 2026-01-01: always increasing, so Play accepts every new upload.
 val autoVersionCode = ((System.currentTimeMillis() / 60_000L) - 29_453_760L).toInt().coerceAtLeast(1)
 
-// Google Play upload key: provided via environment (GitHub secrets), never committed.
+// Signing keys come from the environment (GitHub secrets) and are never committed.
+val releaseKeystore = System.getenv("HOLOS_RELEASE_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+// Google Play upload key.
 val uploadKeystore = System.getenv("HOLOS_UPLOAD_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
 
 android {
@@ -29,14 +31,15 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            // Fixed key so new builds install as updates over old ones. CI provides it from the
-            // HOLOS_RELEASE_KEYSTORE_B64 secret; the committed keystore is only a fallback.
-            storeFile = System.getenv("HOLOS_RELEASE_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
-                ?: file("holos-release.jks")
-            storePassword = System.getenv("HOLOS_RELEASE_STORE_PASSWORD") ?: "holos-local"
-            keyAlias = System.getenv("HOLOS_RELEASE_KEY_ALIAS") ?: "holos"
-            keyPassword = System.getenv("HOLOS_RELEASE_KEY_PASSWORD") ?: "holos-local"
+        if (releaseKeystore != null) {
+            // Private release key (GitHub secret HOLOS_RELEASE_KEYSTORE_B64). Every published APK
+            // must be signed with it, otherwise installed apps cannot update.
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = System.getenv("HOLOS_RELEASE_STORE_PASSWORD")
+                keyAlias = System.getenv("HOLOS_RELEASE_KEY_ALIAS") ?: "holos"
+                keyPassword = System.getenv("HOLOS_RELEASE_KEY_PASSWORD") ?: System.getenv("HOLOS_RELEASE_STORE_PASSWORD")
+            }
         }
         if (uploadKeystore != null) {
             create("play") {
@@ -53,10 +56,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.findByName("play") ?: signingConfigs.getByName("release")
-        }
-        debug {
-            signingConfig = signingConfigs.getByName("release")
+            // Local builds without the secret fall back to the debug key (they can't update real installs).
+            signingConfig = signingConfigs.findByName("play") ?: signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
         }
     }
 

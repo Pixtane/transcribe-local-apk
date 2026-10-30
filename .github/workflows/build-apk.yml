@@ -47,13 +47,12 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.HOLOS_RELEASE_KEYSTORE_B64 }}
         run: |
-          if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-            echo "HOLOS_RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-            echo "Using release keystore from secrets"
-          else
-            echo "::warning::HOLOS_RELEASE_KEYSTORE_B64 not set; signing with the committed fallback keystore"
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Secret HOLOS_RELEASE_KEYSTORE_B64 is missing. Add the release key secrets (see README), otherwise the APK could not update installed apps."
+            exit 1
           fi
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "HOLOS_RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       - name: Build release APK
         env:
@@ -61,11 +60,14 @@ jobs:
           HOLOS_RELEASE_KEY_PASSWORD: ${{ secrets.HOLOS_RELEASE_KEY_PASSWORD }}
           HOLOS_RELEASE_KEY_ALIAS: ${{ secrets.HOLOS_RELEASE_KEY_ALIAS }}
         run: |
-          # Empty secrets must not override the fallback defaults.
-          [ -z "$HOLOS_RELEASE_STORE_PASSWORD" ] && unset HOLOS_RELEASE_STORE_PASSWORD
+          # Optional secrets left empty must not override the defaults.
           [ -z "$HOLOS_RELEASE_KEY_PASSWORD" ] && unset HOLOS_RELEASE_KEY_PASSWORD
           [ -z "$HOLOS_RELEASE_KEY_ALIAS" ] && unset HOLOS_RELEASE_KEY_ALIAS
           ./gradlew --no-daemon assembleRelease --stacktrace
+          # Refuse to publish an APK that is not signed with the release key.
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -q "CN=Holos, O=Pixtane" \
+            || { echo "::error::APK is not signed with the Holos release key"; exit 1; }
 
       - name: Collect APK
         id: apk

@@ -11,3 +11,7 @@ captures/
 dist/
 *.jks.b64
 holos-upload.jks
+
+# Signing keys are never committed (CI reads them from secrets).
+*.jks
+*.keystore

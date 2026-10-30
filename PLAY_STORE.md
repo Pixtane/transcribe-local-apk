@@ -108,4 +108,4 @@ Production → **Create new release** → upload the `.aab` (or promote the clos
   - The Coqui/Neon VITS voices are listed as BSD-3-Clause. Check each model card before selling.
   - Do **not** add Meta MMS voices to a paid app: they are CC-BY-NC (non-commercial).
 - **Name:** search Play for "Holos" to avoid confusion with an existing trademark. A distinctive subtitle (as in the title) helps.
-- **Release signing key in the repo:** `app/holos-release.jks` is only for the free GitHub APKs. Play builds use your private upload key. Users can't update a GitHub-installed APK from Play (different signature): they need to uninstall it first.
+- **Two keys:** GitHub APKs are signed with your private release key (secret `HOLOS_RELEASE_KEYSTORE_B64`); Play builds use the separate upload key. Users can't update a GitHub-installed APK from Play (different signature): they need to uninstall it first.

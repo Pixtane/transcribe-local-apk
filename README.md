@@ -77,9 +77,18 @@ published as a GitHub release. To build locally:
 
 Output: `app/build/outputs/apk/release/app-release.apk` (arm64-v8a, Android 8.0+).
 
-The release keystore `app/holos-release.jks` is committed on purpose. Every build is signed
-with the same key, so new versions install as updates and keep your recordings.
-It protects nothing secret: do not reuse it for anything else.
+Release APKs are signed with a private key stored only in GitHub secrets
+(`HOLOS_RELEASE_KEYSTORE_B64`, `HOLOS_RELEASE_STORE_PASSWORD`). Every published version must be
+signed with it, otherwise installed apps cannot update to it. Back up the keystore and password:
+if they are lost, everyone has to reinstall the app. Local builds without the secret are signed
+with the debug key.
+
+## Publishing an update
+
+Installed apps update themselves from the latest GitHub release. To publish one:
+GitHub → Actions → **Build APK** → **Run workflow**, keep *publish* ticked and write the notes
+users see in the update banner. Builds of `main` are published automatically; pushes to other
+branches only produce an APK artifact.
 
 ## Architecture
 
