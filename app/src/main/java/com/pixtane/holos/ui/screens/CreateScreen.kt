@@ -122,6 +122,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
     var steps by rememberSaveable { mutableIntStateOf(Prefs.steps) }
     var previewing by remember { mutableStateOf(false) }
     var creating by remember { mutableStateOf(false) }
+    var smartMode by rememberSaveable { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     // Imported books can be huge, so they are not put into the (saveable) text field.
     var imported by remember { mutableStateOf<ImportedDoc?>(null) }
@@ -324,10 +325,26 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
             Spacer(Modifier.height(24.dp))
         }
 
-        Box(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+            SectionLabel(t("When to generate", "Коли генерувати"))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SelectableCard(selected = !smartMode, onClick = { smartMode = false }, modifier = Modifier.weight(1f)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(t("Immediately", "Одразу"), style = MaterialTheme.typography.labelLarge)
+                        Text(t("Start now", "Почати зараз"), style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                    }
+                }
+                SelectableCard(selected = smartMode, onClick = { smartMode = true }, modifier = Modifier.weight(1f)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(t("Smart", "Розумно"), style = MaterialTheme.typography.labelLarge)
+                        Text(t("Activates when charging", "Вмикається під час заряджання"), style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted, maxLines = 1)
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
             val canCreate = (imported != null || text.isNotBlank()) && importing == null && model == ModelManager.State.Ready && !creating
             GradientButton(
-                text = if (creating) t("Preparing…", "Підготовка…") else t("Create & play", "Створити й слухати"),
+                text = if (creating) t("Preparing…", "Підготовка…") else if (smartMode) t("Create", "Створити") else t("Create & play", "Створити й слухати"),
                 enabled = canCreate,
                 modifier = Modifier.fillMaxWidth(),
                 leading = { Icon(Icons.Rounded.AutoAwesome, null, tint = androidx.compose.ui.graphics.Color.White) },
@@ -349,6 +366,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                                 title = title.trim().ifBlank { RecordingRepository.suggestTitle(body) },
                                 lang = lang, voice = if (pack.voices.size > 1) voice else 0, steps = steps, pack = pack,
                                 chapters = doc?.chapters,
+                                smart = smartMode,
                             )
                         }
                         if (rec.n == 0) {
@@ -357,8 +375,13 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                             creating = false
                             return@launch
                         }
-                        SynthesisManager.enqueue(rec.id, front = true)
-                        PlayerActions.play(controller, rec.id)
+                        if (smartMode) {
+                            SynthesisManager.enqueue(rec.id)
+                            com.pixtane.holos.synth.SmartScheduler.ensureScheduled()
+                        } else {
+                            SynthesisManager.enqueue(rec.id, front = true)
+                            PlayerActions.play(controller, rec.id)
+                        }
                         nav.replace(Screen.Player(rec.id))
                       } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e

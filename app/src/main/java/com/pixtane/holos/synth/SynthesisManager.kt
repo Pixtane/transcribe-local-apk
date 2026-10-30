@@ -61,6 +61,14 @@ object SynthesisManager {
 
     fun isIdle() = runner?.isActive != true
 
+    /** Smart recordings the user explicitly wants now (playing them, or "Generate now"). */
+    private val forced = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    fun force(id: String) { forced.add(id) }
+
+    /** A smart recording waiting for the charger (not forced, conditions not met). */
+    fun waitingForCharge(rec: Recording) = rec.smart && rec.id !in forced && !PowerConditions.ok()
+
     fun isQueuedOrActive(id: String) = activeId == id || synchronized(queue) { id in queue }
 
     fun enqueue(id: String, front: Boolean = false) {
@@ -84,6 +92,7 @@ object SynthesisManager {
     /** Called by the player when it needs sentence [seg] (e.g. after a seek). */
     fun requestSegment(id: String, seg: Int) {
         priority[id] = seg
+        forced.add(id)
         if (!isQueuedOrActive(id)) enqueue(id, front = true)
     }
 
@@ -116,6 +125,10 @@ object SynthesisManager {
             val id = synchronized(queue) { queue.removeFirstOrNull() } ?: break
             val rec = RecordingRepository.get(id) ?: continue
             if (rec.isComplete || !ModelManager.isReady(rec.pack)) continue
+            if (waitingForCharge(rec)) {
+                SmartScheduler.ensureScheduled()
+                continue
+            }
             activeId = id
             _status.value = Status(id, rec.ready.value, rec.n, loadingEngines = true)
             val job = HolosApp.scope.launch { generate(rec) }
@@ -125,6 +138,7 @@ object SynthesisManager {
         }
         _status.value = Status(error = lastError)
         lastError = null
+        SmartScheduler.ensureScheduled()
         val ctx = HolosApp.instance
         ctx.stopService(Intent(ctx, SynthesisService::class.java))
     }
@@ -141,6 +155,8 @@ object SynthesisManager {
         val failures = java.util.concurrent.atomic.AtomicInteger(0)
 
         fun pick(): Int? = synchronized(lock) {
+            // Smart recordings stop after the current sentence when unplugged or hot.
+            if (waitingForCharge(rec)) return null
             val from = (priority[rec.id] ?: 0).coerceIn(0, rec.n)
             for (i in from until rec.n) if (!rec.isReady(i) && i !in inProgress) { inProgress.add(i); return i }
             for (i in 0 until from) if (!rec.isReady(i) && i !in inProgress) { inProgress.add(i); return i }

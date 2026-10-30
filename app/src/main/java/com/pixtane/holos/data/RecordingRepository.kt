@@ -74,6 +74,7 @@ object RecordingRepository {
                 segs = segs,
                 chapters = chapters,
             )
+            rec.smart = m.optBoolean("smart", false)
             cache.putIfAbsent(id, rec) ?: rec
         } catch (e: Exception) {
             Log.w(TAG, "Broken recording $id", e)
@@ -84,7 +85,7 @@ object RecordingRepository {
     /**
      * [chapters] offsets refer to [rawText]; null means "detect headings in the text".
      */
-    fun create(rawText: String, title: String, lang: Lang, voice: Int, steps: Int, pack: EnginePack, chapters: List<Chapter>? = null): Recording {
+    fun create(rawText: String, title: String, lang: Lang, voice: Int, steps: Int, pack: EnginePack, chapters: List<Chapter>? = null, smart: Boolean = false): Recording {
         // Supertonic renders at 44.1 kHz; "compact" storage halves that. VITS is already 22.05 kHz.
         val sampleRate = if (pack.sampleRate == 44_100 && Prefs.compactAudio) 22_050 else pack.sampleRate
         val id = "r" + System.currentTimeMillis().toString(36)
@@ -104,6 +105,7 @@ object RecordingRepository {
             .put("voice", voice)
             .put("steps", steps)
             .put("engine", pack.id)
+            .put("smart", smart)
             .put("sampleRate", sampleRate)
             .put("createdAt", System.currentTimeMillis())
             .put("segs", flat)
@@ -111,6 +113,13 @@ object RecordingRepository {
         val rec = get(id) ?: error("Could not create recording")
         refresh()
         return rec
+    }
+
+    fun setSmart(id: String, smart: Boolean) {
+        val rec = get(id) ?: return
+        writeMeta(rec.dir, JSONObject(File(rec.dir, "meta.json").readText()).put("smart", smart))
+        rec.smart = smart
+        refresh()
     }
 
     fun rename(id: String, title: String) {

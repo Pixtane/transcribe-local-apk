@@ -513,6 +513,7 @@ private fun GenerationStatus(rec: Recording, ready: Int, synth: SynthesisManager
                     if (synth.etaSec >= 0) append(t(" · ${formatDuration(synth.etaSec * 1000L)} left", " · залишилось ${formatDuration(synth.etaSec * 1000L)}"))
                 }
                 paused -> t("Generation paused at $pct%", "Генерацію призупинено на $pct%")
+                SynthesisManager.waitingForCharge(rec) -> t("Waiting for charging · $pct%", "Очікує заряджання · $pct%")
                 SynthesisManager.isQueuedOrActive(rec.id) -> t("Waiting in queue · $pct%", "У черзі · $pct%")
                 else -> t("$pct% generated", "Згенеровано $pct%")
             }
@@ -521,10 +522,26 @@ private fun GenerationStatus(rec: Recording, ready: Int, synth: SynthesisManager
                 Text(it, style = MaterialTheme.typography.labelSmall, color = HolosColors.Danger, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        val waiting = !active && !paused && SynthesisManager.waitingForCharge(rec)
         TextButton(onClick = {
-            if (active || SynthesisManager.isQueuedOrActive(rec.id)) SynthesisManager.pause(rec.id) else SynthesisManager.enqueue(rec.id)
+            when {
+                waiting -> {
+                    RecordingRepository.setSmart(rec.id, false)
+                    SynthesisManager.force(rec.id)
+                    SynthesisManager.enqueue(rec.id, front = true)
+                }
+                active || SynthesisManager.isQueuedOrActive(rec.id) -> SynthesisManager.pause(rec.id)
+                else -> { SynthesisManager.force(rec.id); SynthesisManager.enqueue(rec.id) }
+            }
         }) {
-            Text(if (active || SynthesisManager.isQueuedOrActive(rec.id)) t("Pause", "Пауза") else t("Resume", "Продовжити"), color = Color.White)
+            Text(
+                when {
+                    waiting -> t("Start now", "Почати зараз")
+                    active || SynthesisManager.isQueuedOrActive(rec.id) -> t("Pause", "Пауза")
+                    else -> t("Resume", "Продовжити")
+                },
+                color = Color.White,
+            )
         }
     }
 }

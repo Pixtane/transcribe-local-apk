@@ -294,6 +294,7 @@ private fun RecordingCard(rec: Recording, isCurrent: Boolean, isPlaying: Boolean
                 when {
                     complete -> Pill(t("Ready", "Готово"), HolosColors.Success)
                     generating -> Pill(t("Generating ${ready * 100 / rec.n.coerceAtLeast(1)}%", "Генерація ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Pink)
+                    SynthesisManager.waitingForCharge(rec) -> Pill(t("Waiting for charging", "Очікує заряджання"), HolosColors.Muted)
                     rec.id in pausedSet -> Pill(t("Paused ${ready * 100 / rec.n.coerceAtLeast(1)}%", "Пауза ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Muted)
                     else -> Pill(t("${ready * 100 / rec.n.coerceAtLeast(1)}% generated", "Згенеровано ${ready * 100 / rec.n.coerceAtLeast(1)}%"), HolosColors.Muted)
                 }

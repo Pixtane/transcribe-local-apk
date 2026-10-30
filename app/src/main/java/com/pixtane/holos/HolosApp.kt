@@ -9,6 +9,7 @@ import com.pixtane.holos.tts.ModelManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class HolosApp : Application() {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -21,6 +22,8 @@ class HolosApp : Application() {
         ModelManager.init(this)
         RecordingRepository.init(this)
         createChannels()
+        // Recordings load asynchronously; give them a moment, then resume smart generation.
+        appScope.launch { kotlinx.coroutines.delay(1_500); com.pixtane.holos.synth.SmartScheduler.init(this@HolosApp) }
     }
 
     private fun createChannels() {

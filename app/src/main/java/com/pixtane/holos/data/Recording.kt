@@ -40,6 +40,10 @@ class Recording(
     @Volatile var title: String = title
         internal set
 
+    /** Smart generation: only generate while charging (see PowerConditions). */
+    @Volatile var smart: Boolean = false
+        internal set
+
     private val frames = AtomicLongArray(n)
     private val _ready = MutableStateFlow(0)
     /** Number of sentences whose audio is on disk. */
