@@ -1,11 +1,9 @@
 name: Google Play bundle
 
 # Builds the signed Android App Bundle (.aab) for Google Play.
-# Required repository secrets (Settings → Secrets and variables → Actions):
-#   HOLOS_UPLOAD_KEYSTORE_B64   base64 of your upload keystore (scripts/create-upload-key.sh)
-#   HOLOS_UPLOAD_STORE_PASSWORD keystore password
-#   HOLOS_UPLOAD_KEY_ALIAS      key alias (default: upload)
-#   HOLOS_UPLOAD_KEY_PASSWORD   key password
+# Signed with the same private release key as the GitHub APK (secrets HOLOS_RELEASE_KEYSTORE_B64
+# and HOLOS_RELEASE_STORE_PASSWORD). In Play Console choose "Use existing app signing key", so
+# both versions share one signature and users can move between them without reinstalling.
 # Optional, to upload automatically after the first manual upload:
 #   PLAY_SERVICE_ACCOUNT_JSON   Google Play Developer API service account key (JSON)
 
@@ -39,29 +37,27 @@ jobs:
       - name: Fetch sherpa-onnx Android library
         run: ./scripts/fetch-sherpa.sh
 
-      - name: Restore upload keystore
+      - name: Restore release keystore
         env:
-          KEYSTORE_B64: ${{ secrets.HOLOS_UPLOAD_KEYSTORE_B64 }}
+          KEYSTORE_B64: ${{ secrets.HOLOS_RELEASE_KEYSTORE_B64 }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error::Secret HOLOS_UPLOAD_KEYSTORE_B64 is missing (see PLAY_STORE.md)"; exit 1
+            echo "::error::Secret HOLOS_RELEASE_KEYSTORE_B64 is missing"; exit 1
           fi
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
-          echo "HOLOS_UPLOAD_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "HOLOS_RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
-      - name: Build release bundle
+      - name: Build Play bundle
         env:
-          HOLOS_UPLOAD_STORE_PASSWORD: ${{ secrets.HOLOS_UPLOAD_STORE_PASSWORD }}
-          HOLOS_UPLOAD_KEY_ALIAS: ${{ secrets.HOLOS_UPLOAD_KEY_ALIAS }}
-          HOLOS_UPLOAD_KEY_PASSWORD: ${{ secrets.HOLOS_UPLOAD_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon bundleRelease --stacktrace
+          HOLOS_RELEASE_STORE_PASSWORD: ${{ secrets.HOLOS_RELEASE_STORE_PASSWORD }}
+        run: ./gradlew --no-daemon bundlePlayRelease --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: holos-play-bundle-${{ github.run_number }}
           path: |
-            app/build/outputs/bundle/release/app-release.aab
-            app/build/outputs/mapping/release/mapping.txt
+            app/build/outputs/bundle/playRelease/app-play-release.aab
+            app/build/outputs/mapping/playRelease/mapping.txt
 
       - name: Upload to Google Play
         if: ${{ inputs.upload }}
@@ -69,7 +65,7 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.pixtane.holos
-          releaseFiles: app/build/outputs/bundle/release/app-release.aab
-          mappingFile: app/build/outputs/mapping/release/mapping.txt
+          releaseFiles: app/build/outputs/bundle/playRelease/app-play-release.aab
+          mappingFile: app/build/outputs/mapping/playRelease/mapping.txt
           track: ${{ inputs.track }}
           status: draft

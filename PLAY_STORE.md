@@ -24,29 +24,23 @@ A paid app needs a **payments profile (merchant account)**. Ukraine is a support
 
 **What you receive from a $1 sale:** Google keeps a **15%** service fee (on your first $1M per year). Where Google collects VAT/GST on your behalf (EU, UK and others), that tax comes off first. So a $0.99 sale typically pays you **≈ $0.70–0.85**.
 
-## 3. Create your upload key (never share or commit it)
+## 3. Signing: reuse your existing release key
 
-On your computer (needs Java, or Android Studio's JDK):
+The Play version is signed with **the same private key** as the GitHub APK (it's already in your GitHub secrets). That way someone who installed the free APK can later install from Play, or the other way round, without uninstalling.
 
-```bash
-./scripts/create-upload-key.sh          # creates holos-upload.jks + holos-upload.jks.b64
-```
-
-Store `holos-upload.jks` and its password in a password manager **plus** an offline backup.
-
-Then on GitHub: **Repository → Settings → Secrets and variables → Actions → New repository secret**, and add:
-
-| Secret | Value |
-|---|---|
-| `HOLOS_UPLOAD_KEYSTORE_B64` | contents of `holos-upload.jks.b64` |
-| `HOLOS_UPLOAD_STORE_PASSWORD` | your password |
-| `HOLOS_UPLOAD_KEY_PASSWORD` | your password |
-| `HOLOS_UPLOAD_KEY_ALIAS` | `upload` |
+In Play Console, when it asks about app signing (Setup → App signing, or during the first release), choose **"Use existing app signing key" → "Export and upload a key from Java keystore"**:
+1. Download `pepk.jar` and the encryption public key from that page.
+2. On a computer with Java, next to your `holos-release-2026.jks`, run the command the page shows. It looks like:
+   `java -jar pepk.jar --keystore=holos-release-2026.jks --alias=holos --output=holos-signing.zip --include-cert --rsa-aes-encryption --encryption-key-path=encryption_public_key.pem`
+   Enter your keystore password when it asks.
+3. Upload `holos-signing.zip`. When it asks for an upload key, choose the same key.
 
 ## 4. Build the App Bundle
 
 GitHub → **Actions → "Google Play bundle" → Run workflow** (leave "upload" unchecked).
-When it finishes, download the artifact. It contains `app-release.aab` (upload this) and `mapping.txt` (crash de-obfuscation).
+Download the artifact: `app-play-release.aab` (upload this) and `mapping.txt`.
+
+The Play build has **no self-updater and no donation links**. Google forbids both in Play apps: updates must come from Play, and payments for the app must go through Google. Do **not** mention the free GitHub version anywhere in the Play listing.
 
 ## 5. Create the app in Play Console
 
@@ -100,7 +94,7 @@ Production → **Create new release** → upload the `.aab` (or promote the clos
 
 ## 9. Before you start selling
 
-- **Free copies:** this repository is **public**, and every push publishes a free APK under Releases. Before launch, either set the repository variable `PUBLISH_APK_RELEASES` = `false` (Settings → Secrets and variables → Actions → Variables) and delete old releases, or make the repository private (Settings → General → Danger zone).
+- **Free version:** the free GitHub APK, with donations and the self-updater, stays available. That's allowed. Just keep it out of the Play listing and the Play build. Your Monobank jar description can point donors to it: «Дякую! Holos безкоштовно: https://github.com/Pixtane/transcribe-local-apk/releases/latest».
 - **Privacy policy URL:** if you make the repo private, host the policy somewhere public. A public GitHub Gist with the contents of `PRIVACY.md` works, or a GitHub Pages site. Then update `PRIVACY_URL` in `app/src/main/java/com/pixtane/holos/ui/screens/AboutSection.kt`.
 - **Model licenses (please verify yourself):**
   - Supertonic 3 is under **OpenRAIL-M**, which allows commercial use. You must pass on its use restrictions, which the app shows under Settings → About.
@@ -108,4 +102,4 @@ Production → **Create new release** → upload the `.aab` (or promote the clos
   - The Coqui/Neon VITS voices are listed as BSD-3-Clause. Check each model card before selling.
   - Do **not** add Meta MMS voices to a paid app: they are CC-BY-NC (non-commercial).
 - **Name:** search Play for "Holos" to avoid confusion with an existing trademark. A distinctive subtitle (as in the title) helps.
-- **Two keys:** GitHub APKs are signed with your private release key (secret `HOLOS_RELEASE_KEYSTORE_B64`); Play builds use the separate upload key. Users can't update a GitHub-installed APK from Play (different signature): they need to uninstall it first.
+- **One key:** both versions are signed with `holos-release-2026.jks`. Back it up. Users can't update a GitHub-installed APK from Play (different signature): they need to uninstall it first.

@@ -51,6 +51,20 @@ android {
         }
     }
 
+    // github: free APK with self-updater and donation links (shared in chats, GitHub Releases).
+    // play: paid Google Play build; updates and payment are handled by Play.
+    flavorDimensions += "store"
+    productFlavors {
+        create("github") {
+            dimension = "store"
+            buildConfigField("boolean", "SELF_UPDATE", "true")
+        }
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true

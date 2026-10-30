@@ -63,10 +63,10 @@ jobs:
           # Optional secrets left empty must not override the defaults.
           [ -z "$HOLOS_RELEASE_KEY_PASSWORD" ] && unset HOLOS_RELEASE_KEY_PASSWORD
           [ -z "$HOLOS_RELEASE_KEY_ALIAS" ] && unset HOLOS_RELEASE_KEY_ALIAS
-          ./gradlew --no-daemon assembleRelease --stacktrace
+          ./gradlew --no-daemon assembleGithubRelease --stacktrace
           # Refuse to publish an APK that is not signed with the release key.
           APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
-          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | grep -q "CN=Holos, O=Pixtane" \
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/github/release/app-github-release.apk | grep -q "CN=Holos, O=Pixtane" \
             || { echo "::error::APK is not signed with the Holos release key"; exit 1; }
 
       - name: Collect APK
@@ -74,7 +74,7 @@ jobs:
         run: |
           VERSION="1.1.${{ github.run_number }}"
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk "out/Holos-$VERSION.apk"
+          cp app/build/outputs/apk/github/release/app-github-release.apk "out/Holos-$VERSION.apk"
           ls -lh out
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
