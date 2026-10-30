@@ -207,9 +207,6 @@ fun SettingsScreen(nav: Nav) {
 
             Spacer(Modifier.height(24.dp))
             if (com.pixtane.holos.BuildConfig.SELF_UPDATE) {
-                SectionLabel(t("Support", "Підтримка"))
-                com.pixtane.holos.ui.components.SupportSection()
-                Spacer(Modifier.height(24.dp))
                 SectionLabel(t("Updates", "Оновлення"))
                 com.pixtane.holos.ui.components.UpdateSettings()
                 Spacer(Modifier.height(24.dp))
