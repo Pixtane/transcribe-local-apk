@@ -23,15 +23,20 @@ android {
         versionName = "1.1.$buildNumber"
         // Nothing Phone 3a (and every modern phone) is arm64.
         ndk { abiFilters += listOf("arm64-v8a") }
+        // Number of the GitHub Actions build that produced this APK; the updater compares it
+        // with the latest release tag (v1.1.<build>).
+        buildConfigField("int", "BUILD_NUMBER", buildNumber.toString())
     }
 
     signingConfigs {
         create("release") {
-            // Fixed key so new builds install as updates over old ones.
-            storeFile = file("holos-release.jks")
-            storePassword = "holos-local"
-            keyAlias = "holos"
-            keyPassword = "holos-local"
+            // Fixed key so new builds install as updates over old ones. CI provides it from the
+            // HOLOS_RELEASE_KEYSTORE_B64 secret; the committed keystore is only a fallback.
+            storeFile = System.getenv("HOLOS_RELEASE_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+                ?: file("holos-release.jks")
+            storePassword = System.getenv("HOLOS_RELEASE_STORE_PASSWORD") ?: "holos-local"
+            keyAlias = System.getenv("HOLOS_RELEASE_KEY_ALIAS") ?: "holos"
+            keyPassword = System.getenv("HOLOS_RELEASE_KEY_PASSWORD") ?: "holos-local"
         }
         if (uploadKeystore != null) {
             create("play") {

@@ -24,6 +24,7 @@ class HolosApp : Application() {
         createChannels()
         // Recordings load asynchronously; give them a moment, then resume smart generation.
         appScope.launch { kotlinx.coroutines.delay(1_500); com.pixtane.holos.synth.SmartScheduler.init(this@HolosApp) }
+        com.pixtane.holos.update.Updater.init(this)
     }
 
     private fun createChannels() {

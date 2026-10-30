@@ -206,6 +206,10 @@ fun SettingsScreen(nav: Nav) {
             EnginesSection(synth.running)
 
             Spacer(Modifier.height(24.dp))
+            SectionLabel(t("Updates", "Оновлення"))
+            com.pixtane.holos.ui.components.UpdateSettings()
+
+            Spacer(Modifier.height(24.dp))
             SectionLabel(t("About", "Про застосунок"))
             AboutSection()
 

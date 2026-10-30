@@ -119,6 +119,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                     }
                 }
             }
+            item { com.pixtane.holos.ui.components.UpdateBanner() }
             if (model != ModelManager.State.Ready) {
                 item { ModelCard(EngineCatalog.SUPERTONIC) }
             }

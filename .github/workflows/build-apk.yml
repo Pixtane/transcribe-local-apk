@@ -4,6 +4,11 @@ on:
   push:
     branches: [main, "claude/**"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish this build as the latest release (phones auto-update to it)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -34,8 +39,29 @@ jobs:
             echo "HF_PROBE $repo -> $code"
           done
 
+      - name: Restore release keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.HOLOS_RELEASE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "HOLOS_RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "Using release keystore from secrets"
+          else
+            echo "::warning::HOLOS_RELEASE_KEYSTORE_B64 not set; signing with the committed fallback keystore"
+          fi
+
       - name: Build release APK
-        run: ./gradlew --no-daemon assembleRelease --stacktrace
+        env:
+          HOLOS_RELEASE_STORE_PASSWORD: ${{ secrets.HOLOS_RELEASE_STORE_PASSWORD }}
+          HOLOS_RELEASE_KEY_PASSWORD: ${{ secrets.HOLOS_RELEASE_KEY_PASSWORD }}
+          HOLOS_RELEASE_KEY_ALIAS: ${{ secrets.HOLOS_RELEASE_KEY_ALIAS }}
+        run: |
+          # Empty secrets must not override the fallback defaults.
+          [ -z "$HOLOS_RELEASE_STORE_PASSWORD" ] && unset HOLOS_RELEASE_STORE_PASSWORD
+          [ -z "$HOLOS_RELEASE_KEY_PASSWORD" ] && unset HOLOS_RELEASE_KEY_PASSWORD
+          [ -z "$HOLOS_RELEASE_KEY_ALIAS" ] && unset HOLOS_RELEASE_KEY_ALIAS
+          ./gradlew --no-daemon assembleRelease --stacktrace
 
       - name: Collect APK
         id: apk
@@ -52,9 +78,10 @@ jobs:
           path: out/*.apk
 
       - name: Publish GitHub release
-        # Set the repository variable PUBLISH_APK_RELEASES=false to stop publishing free APKs
-        # (e.g. once the app is sold on Google Play). The APK is still kept as a build artifact.
-        if: ${{ vars.PUBLISH_APK_RELEASES != 'false' }}
+        # Installed apps update themselves to the latest release, so only builds from main (or a
+        # manual run with "publish") are released. Other branches only keep the APK as an artifact.
+        # The repository variable PUBLISH_APK_RELEASES=false turns publishing off completely.
+        if: ${{ vars.PUBLISH_APK_RELEASES != 'false' && (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -62,5 +89,5 @@ jobs:
           gh release create "$TAG" out/*.apk \
             --target "${{ github.sha }}" \
             --title "Holos ${{ steps.apk.outputs.version }}" \
-            --notes "Offline AI text-to-speech for Ukrainian, German and English (Supertonic 3 via sherpa-onnx). Install the APK on an arm64 Android 8+ phone. Built from ${{ github.sha }} on ${{ github.ref_name }}." \
-            --prerelease
+            --notes "$(git log -1 --pretty=%B | grep -v -E "^(Co-Authored-By|Claude-Session):" | head -n 12)" \
+            --latest

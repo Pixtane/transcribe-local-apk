@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        com.pixtane.holos.update.Updater.uiVisible = true
         val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
         val future = MediaController.Builder(this, token).buildAsync()
         controllerFuture = future
@@ -80,6 +81,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        com.pixtane.holos.update.Updater.uiVisible = false
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null
         controller.value = null

@@ -52,6 +52,11 @@ object Prefs {
     fun engineFor(lang: String): String? = sp.getString("engine_$lang", null)
     fun setEngineFor(lang: String, id: String) = sp.edit().putString("engine_$lang", id).apply()
 
+    /** Download and install new versions from GitHub automatically. */
+    var autoUpdate: Boolean
+        get() = sp.getBoolean("auto_update", true)
+        set(v) = sp.edit().putBoolean("auto_update", v).apply()
+
     /** Interface language: "uk" (default) or "en". */
     var uiLang: String
         get() = sp.getString("ui_lang", "uk") ?: "uk"
