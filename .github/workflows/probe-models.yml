@@ -12,7 +12,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -q onnx onnxruntime numpy soundfile
+      - run: pip install -q onnx onnxruntime numpy soundfile ipa-uk "sherpa-onnx==2.0.1"
+      - name: Download Supertonic 3 for comparison
+        run: |
+          curl -sSL https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2 | tar xj
+          mv sherpa-onnx-supertonic-3-tts-int8-2026-05-11 supertonic
       - name: Download Ukrainian StyleTTS2 pack
         run: |
           mkdir -p uk && cd uk
