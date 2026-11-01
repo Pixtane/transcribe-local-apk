@@ -1,0 +1,39 @@
+name: Build «Денис» voice pack
+
+# Converts the StyleTTS2 Ukrainian ONNX export into the pack the app downloads and publishes it
+# as a pre-release (never "latest", so the app updater ignores it).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TAG: voice-uk-denys-v1
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q onnx numpy
+      - name: Download source
+        run: |
+          mkdir -p src && cd src
+          for f in manifest.json vocab.txt style.bin model.onnx model.onnx.data stress.sqlite.gz LICENSE-styletts2-ukrainian.txt LICENSE-ukrainian-word-stress.txt; do
+            curl -fsSL -o "$f" "https://huggingface.co/news-production-app/news-voice-packs/resolve/main/uk/$f"
+          done
+      - name: Convert
+        run: python3 scripts/build_denys_pack.py src pack
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" pack/* --target "${{ github.sha }}" --prerelease --latest=false \
+            --title "Voice pack: «Денис» (Ukrainian, StyleTTS2)" \
+            --notes "StyleTTS2 Ukrainian (patriotyk, MIT) wrapped for sherpa-onnx, with the lang-uk ukrainian-word-stress dictionary (MIT). Downloaded by the app; not an app release."
+          ls -la pack
