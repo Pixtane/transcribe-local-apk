@@ -37,7 +37,11 @@ def stress_word(db, word):
         row = db.execute("select stress from stress where word=?", (key2,)).fetchone()
     if row is None:
         return word
-    positions = sorted(set(row[0]), reverse=True)
+    blob = list(row[0])
+    if 254 in blob:
+        # Heteronyms: records "positions… 254 tags… 255"; without context take the first record.
+        blob = blob[:blob.index(254)]
+    positions = sorted(set(blob), reverse=True)
     out = word
     for p in positions:
         if 0 < p <= len(out):
@@ -139,6 +143,42 @@ def render(d, out):
         a = tts.generate("", g2)
         sf.write(os.path.join(out, f"sherpa_styletts2_{i}.wav"), np.array(a.samples), a.sample_rate)
         report.append(f"sherpa wrap [{i}]: {len(a.samples)/max(a.sample_rate,1):.2f}s audio, sr={a.sample_rate}")
+
+    # Piper "Serhiy" (stress-trained VITS) fed with the same IPA through sherpa-onnx.
+    pj = json.load(open("serhiy/serhiy.onnx.json", encoding="utf-8"))
+    pmap = {k: v[0] for k, v in pj["phoneme_id_map"].items()}
+    with open("serhiy/tokens.txt", "w", encoding="utf-8") as f:
+        for k, v in sorted(pmap.items(), key=lambda kv: kv[1]):
+            f.write(f"{v}\n" if k == " " else f"{k} {v}\n")
+    pm = onnx.load("serhiy/serhiy.onnx")
+    for k, v in {"sample_rate": "22050", "n_speakers": "1", "language": "Ukrainian", "voice": "uk",
+                 "comment": "piper", "model_type": "vits", "add_blank": "0", "has_espeak": "0"}.items():
+        pm.metadata_props.add(key=k, value=v)
+    onnx.save(pm, "serhiy/serhiy-meta.onnx")
+    ptts = sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
+        vits=sherpa_onnx.OfflineTtsVitsModelConfig(model="serhiy/serhiy-meta.onnx", tokens="serhiy/tokens.txt"),
+        num_threads=1)))
+    pt = 0.0; pa = 0.0; pc = 0
+    for i, s_ in enumerate(SENTENCES, 1):
+        ps = ipa(unicodedata.normalize("NFC", stressify(db, s_)))
+        missing = sorted(set(c for c in ps if c not in pmap))
+        g4 = sherpa_onnx.GenerationConfig()
+        g4.phoneme_codepoints = [[ord(c) for c in ps if c in pmap]]
+        t0 = time.time(); a = ptts.generate("", g4); dt = time.time() - t0
+        pt += dt; pa += len(a.samples) / a.sample_rate; pc += len(s_)
+        sf.write(os.path.join(out, f"piper_serhiy_{i}.wav"), np.array(a.samples), a.sample_rate)
+        report.append(f"piper [{i}] missing symbols vs Serhiy map: {missing}")
+    report.append(f"Piper Serhiy (1 thread): {pc / pt:.0f} chars/s, RTF {pt / pa:.3f}")
+
+    # Coqui uk-mai VITS with '+' before the stressed vowel (its symbol set contains '+').
+    ctts = sherpa_onnx.OfflineTts(sherpa_onnx.OfflineTtsConfig(model=sherpa_onnx.OfflineTtsModelConfig(
+        vits=sherpa_onnx.OfflineTtsVitsModelConfig(model="coqui/model.onnx", tokens="coqui/tokens.txt"), num_threads=1)))
+    for i, s_ in enumerate(SENTENCES, 1):
+        plus = re.sub(r"(.)" + ACUTE, r"+\1", unicodedata.normalize("NFD", stressify(db, s_))).lower()
+        plus = unicodedata.normalize("NFC", plus)
+        a = ctts.generate(plus, sid=0, speed=1.0)
+        sf.write(os.path.join(out, f"coqui_stressed_{i}.wav"), np.array(a.samples), a.sample_rate)
+        if i == 1: report.append(f"coqui input: {plus}")
 
     # Supertonic 3 (current default) on the same sentences, voice F2 (sid 1), 5 steps.
     st = "supertonic"

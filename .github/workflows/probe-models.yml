@@ -24,6 +24,11 @@ jobs:
             curl -sSL -o "$f" "https://huggingface.co/news-production-app/news-voice-packs/resolve/main/uk/$f"
           done
           ls -la
+      - name: Download Piper Serhiy and Coqui uk-mai
+        run: |
+          mkdir -p serhiy && for f in serhiy.onnx serhiy.onnx.json; do curl -sSL -o serhiy/$f https://huggingface.co/dmytro-m/uk_UA-serhiy-high/resolve/main/$f; done
+          curl -sSL https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-coqui-uk-mai.tar.bz2 | tar xj
+          mv vits-coqui-uk-mai coqui
       - name: Inspect
         run: python3 scripts/probe_styletts2.py inspect uk
       - name: Render samples
