@@ -90,6 +90,10 @@ fun ModelCard(pack: EnginePack, modifier: Modifier = Modifier, compact: Boolean 
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(pack.uiName(), style = MaterialTheme.typography.titleMedium)
+                    if (pack.recommendedFor.isNotEmpty()) {
+                        Pill(t("Recommended for Ukrainian", "Рекомендовано для української"), HolosColors.Success)
+                        Spacer(Modifier.height(4.dp))
+                    }
                     Text(
                         "${formatBytes(pack.approxBytes)} · " +
                             if (pack.languages.size > 3) languagesCount(pack.languages.size) else pack.languages.joinToString { Lang.of(it).uiName() },

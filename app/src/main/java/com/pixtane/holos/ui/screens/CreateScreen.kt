@@ -114,6 +114,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
         mutableStateOf(
             source?.engineId?.takeIf { id -> source.lang.code == langCode && packs.any { it.id == id } }
                 ?: Prefs.engineFor(langCode)?.takeIf { id -> packs.any { it.id == id } }
+                ?: packs.firstOrNull { langCode in it.recommendedFor && ModelManager.isReady(it) }?.id
                 ?: packs.firstOrNull { ModelManager.isReady(it) }?.id
                 ?: packs.firstOrNull()?.id ?: EngineCatalog.SUPERTONIC.id
         )
@@ -260,11 +261,19 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                         val ready = remember(engineChanges, p.id) { ModelManager.isReady(p) }
                         SelectableCard(selected = p.id == pack.id, onClick = { packId = p.id; Prefs.setEngineFor(langCode, p.id) }, modifier = Modifier.weight(1f)) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (langCode in p.recommendedFor) {
+                                    Text("★ " + t("Recommended", "Рекомендовано"), style = MaterialTheme.typography.labelSmall, color = HolosColors.Success)
+                                }
                                 Text(p.family, style = MaterialTheme.typography.labelLarge)
                                 Text(
-                                    if (ready) (if (p.voices.size > 1) "${voicesCount(p.voices.size)} · " + t("natural", "природні") else t("1 voice · fastest", "1 голос · найшвидший"))
-                                    else t("Not downloaded · ${formatBytes(p.approxBytes)}", "Не завантажено · ${formatBytes(p.approxBytes)}"),
+                                    when {
+                                        !ready -> t("Not downloaded · ${formatBytes(p.approxBytes)}", "Не завантажено · ${formatBytes(p.approxBytes)}")
+                                        p.kind == com.pixtane.holos.tts.EngineKind.STYLETTS2 -> t("correct stress", "точний наголос")
+                                        p.voices.size > 1 -> "${voicesCount(p.voices.size)} · " + t("natural", "природні")
+                                        else -> t("1 voice · fastest", "1 голос · найшвидший")
+                                    },
                                     style = MaterialTheme.typography.labelSmall, color = if (ready) HolosColors.Muted else HolosColors.Faint,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                 )
                             }
                         }

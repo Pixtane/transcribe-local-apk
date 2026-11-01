@@ -297,6 +297,7 @@ private fun LabeledSlider(
 private fun EnginesSection(busy: Boolean) {
     var expandCoqui by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        EngineRow(EngineCatalog.DENYS, busy)
         EngineRow(EngineCatalog.SUPERTONIC, busy)
         Card {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { expandCoqui = !expandCoqui }) {
@@ -328,6 +329,9 @@ private fun EngineRow(pack: EnginePack, busy: Boolean) {
         ModelCard(pack)
     } else Card {
         Text(pack.uiName(), style = MaterialTheme.typography.titleSmall)
+        if (pack.recommendedFor.isNotEmpty()) {
+            com.pixtane.holos.ui.components.Pill(t("Recommended for Ukrainian", "Рекомендовано для української"), HolosColors.Success)
+        }
         Text(pack.uiBlurb(), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
         Text(pack.license, style = MaterialTheme.typography.labelSmall, color = HolosColors.Faint, modifier = Modifier.padding(top = 4.dp))
         Text(t("On disk: ${formatBytes(pack.approxBytes)}", "На диску: ${formatBytes(pack.approxBytes)}"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)

@@ -122,8 +122,10 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                 }
             }
             item { com.pixtane.holos.ui.components.UpdateBanner() }
-            if (model != ModelManager.State.Ready) {
-                item { ModelCard(EngineCatalog.SUPERTONIC) }
+            for (pack in EngineCatalog.STARTER) {
+                if (!ModelManager.isReady(pack) || ModelManager.state(pack).value != ModelManager.State.Ready) {
+                    item(key = "model-${pack.id}") { StarterCard(pack) }
+                }
             }
             if (recordings.isEmpty()) {
                 item { EmptyState(onCreate = { nav.push(Screen.Create()) }, enabled = anyEngine) }
@@ -339,4 +341,11 @@ private fun voiceTag(rec: Recording): String {
     if (rec.pack.voices.size <= 1 || v == null) return rec.pack.family
     val female = v.code.startsWith("F")
     return v.code + " · " + if (female) t("Female", "Жін.") else t("Male", "Чол.")
+}
+
+/** First-start download card; disappears once the engine is installed. */
+@Composable
+private fun StarterCard(pack: com.pixtane.holos.tts.EnginePack) {
+    val st by ModelManager.state(pack).collectAsStateWithLifecycle()
+    if (st != ModelManager.State.Ready) ModelCard(pack)
 }

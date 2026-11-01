@@ -6,7 +6,7 @@ import com.pixtane.holos.Voice
 import com.pixtane.holos.t
 import com.pixtane.holos.uiName
 
-enum class EngineKind { SUPERTONIC, VITS }
+enum class EngineKind { SUPERTONIC, VITS, STYLETTS2 }
 
 /** A downloadable TTS model ("engine") and the languages it can speak. */
 data class EnginePack(
@@ -23,8 +23,11 @@ data class EnginePack(
     val dirName: String,
     /** Required files (name → expected size, or -1 when unknown). */
     val files: Map<String, Long>,
-    val hfRepos: List<String>,
-    val tarballUrl: String,
+    /** Base URLs serving each file individually, tried in order before [tarballUrl]. */
+    val fileBaseUrls: List<String>,
+    val tarballUrl: String?,
+    /** Recommended engine for these languages (shown as a badge). */
+    val recommendedFor: Set<String> = emptySet(),
 ) {
     val hasQualitySteps get() = kind == EngineKind.SUPERTONIC
 }
@@ -61,7 +64,7 @@ object EngineCatalog {
             "vocoder.int8.onnx" to 25_991_073L,
             "vector_estimator.int8.onnx" to 78_400_833L,
         ),
-        hfRepos = listOf("csukuangfj2/$SUPERTONIC_ID", "csukuangfj/$SUPERTONIC_ID"),
+        fileBaseUrls = listOf("csukuangfj2/$SUPERTONIC_ID", "csukuangfj/$SUPERTONIC_ID").map { "https://huggingface.co/$it/resolve/main/" },
         tarballUrl = "$RELEASES/$SUPERTONIC_ID.tar.bz2",
     )
 
@@ -90,22 +93,60 @@ object EngineCatalog {
             blurb = "Very fast, lightweight single-voice model.",
             dirName = "coqui-$lang",
             files = linkedMapOf("model.onnx" to -1L, "tokens.txt" to -1L),
-            hfRepos = emptyList(),
+            fileBaseUrls = emptyList(),
             tarballUrl = "$RELEASES/$model.tar.bz2",
         )
     }
 
-    val ALL: List<EnginePack> = listOf(SUPERTONIC) + COQUI
+    /**
+     * «Денис»: StyleTTS2 Ukrainian (patriotyk, MIT), wrapped for sherpa-onnx by
+     * scripts/build_denys_pack.py, plus the lang-uk word-stress dictionary. Correct stress
+     * from the dictionary instead of the model guessing.
+     */
+    val DENYS = EnginePack(
+        id = "denys-uk",
+        family = "Денис",
+        name = "Денис · StyleTTS2",
+        kind = EngineKind.STYLETTS2,
+        languages = listOf("uk"),
+        approxBytes = 113_017_350L,
+        sampleRate = 24_000,
+        voices = listOf(Voice(0, "Д", "Денис")),
+        license = "StyleTTS2 Ukrainian (patriotyk, MIT); stress dictionary lang-uk/ukrainian-word-stress (MIT), data from «Словники України»; IPA rules patriotyk/ipa-uk (MIT).",
+        blurb = "Ukrainian with dictionary-correct stress and natural intonation.",
+        dirName = "denys-uk",
+        files = linkedMapOf(
+            "tokens.txt" to 1_097L,
+            "voices.bin" to 522_240L,
+            "stress.sqlite.gz" to 16_320_444L,
+            "model.onnx" to 96_174_569L,
+        ),
+        fileBaseUrls = listOf("https://github.com/Pixtane/transcribe-local-apk/releases/download/voice-uk-denys-v1/"),
+        tarballUrl = null,
+        recommendedFor = setOf("uk"),
+    )
+
+    /** Engines offered for download on first start. */
+    val STARTER: List<EnginePack> get() = listOf(SUPERTONIC, DENYS)
+
+    val ALL: List<EnginePack> = listOf(DENYS, SUPERTONIC) + COQUI
 
     fun get(id: String?): EnginePack = ALL.firstOrNull { it.id == id } ?: SUPERTONIC
     fun forLang(code: String): List<EnginePack> = ALL.filter { code in it.languages }
 }
 
 /** Engine name in the current UI language. */
-fun EnginePack.uiName(): String =
-    if (kind == EngineKind.VITS) "Coqui VITS · " + Lang.of(languages.first()).uiName() else name
+fun EnginePack.uiName(): String = when (kind) {
+    EngineKind.VITS -> "Coqui VITS · " + Lang.of(languages.first()).uiName()
+    EngineKind.STYLETTS2 -> t("Denys · Ukrainian", "Денис · українська")
+    else -> name
+}
 
 fun EnginePack.uiBlurb(): String = when (kind) {
     EngineKind.SUPERTONIC -> t("Natural, expressive voices. 10 speakers, 31 languages.", "Природні, виразні голоси. 10 дикторів, 31 мова.")
     EngineKind.VITS -> t("Very fast, lightweight single-voice model.", "Дуже швидка легка модель з одним голосом.")
+    EngineKind.STYLETTS2 -> t(
+        "Ukrainian voice with dictionary-correct stress and natural intonation. Slower than Supertonic.",
+        "Український голос із правильним наголосом за словником і природною інтонацією. Повільніший за Supertonic.",
+    )
 }

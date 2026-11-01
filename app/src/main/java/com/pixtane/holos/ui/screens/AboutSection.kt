@@ -39,6 +39,9 @@ private val NOTICES = listOf(
         "do not use it to break the law, to impersonate real people without consent, to deceive (e.g. present synthetic " +
         "speech as a real person's recording), to harass, defame or discriminate, to generate disinformation, or to provide " +
         "medical or legal advice. Full text: huggingface.co/Supertone/supertonic-3",
+    "«Денис» voice" to "StyleTTS2 Ukrainian multispeaker by patriotyk (MIT); ONNX export from news-production-app/news-voice-packs. " +
+        "Word stress: lang-uk/ukrainian-word-stress dictionary (MIT), data from «Словники України» (УМІФ НАН України). " +
+        "Phonetic rules: patriotyk/ipa-uk (MIT), after Wiktionary's Module:uk-pronunciation (CC BY-SA).",
     "Coqui VITS voice models" to "Coqui TTS / Neon AI models (BSD-3-Clause), trained on CSS10, M-AILABS and Common Voice " +
         "data; ONNX export by k2-fsa/sherpa-onnx (Apache-2.0).",
     "sherpa-onnx" to "Copyright Xiaomi Corporation and contributors. Apache License 2.0.",

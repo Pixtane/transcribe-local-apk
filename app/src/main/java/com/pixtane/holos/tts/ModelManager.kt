@@ -56,8 +56,11 @@ object ModelManager {
 
     fun dir(p: EnginePack) = File(root, p.dirName)
     fun file(p: EnginePack, name: String) = File(dir(p), name).absolutePath
+    /** Name of a file once installed (downloaded .gz files are unpacked). */
+    private fun installedName(name: String) = name.removeSuffix(".gz")
+
     fun isReady(p: EnginePack): Boolean =
-        File(dir(p), MARKER).exists() && p.files.keys.all { File(dir(p), it).length() > 0 }
+        File(dir(p), MARKER).exists() && p.files.keys.all { File(dir(p), installedName(it)).length() > 0 }
     fun readyPacks(): List<EnginePack> = EngineCatalog.ALL.filter { isReady(it) }
 
     fun download(p: EnginePack) {
@@ -66,7 +69,11 @@ object ModelManager {
             val st = flow(p)
             try {
                 dir(p).mkdirs()
-                if (!tryHuggingFace(p)) downloadTarball(p)
+                if (!tryFileSources(p)) {
+                    val tar = p.tarballUrl ?: throw IOException("No download source available")
+                    downloadTarball(p, tar)
+                }
+                unpackGz(p)
                 File(dir(p), MARKER).writeText(p.id)
                 st.value = State.Ready
                 changes.value++
@@ -92,19 +99,21 @@ object ModelManager {
         changes.value++
     }
 
-    private suspend fun tryHuggingFace(p: EnginePack): Boolean {
-        if (p.hfRepos.isEmpty() || p.files.values.any { it < 0 }) return false
+    private suspend fun tryFileSources(p: EnginePack): Boolean {
+        if (p.fileBaseUrls.isEmpty() || p.files.values.any { it < 0 }) return false
         val total = p.files.values.sum()
-        for (repo in p.hfRepos) {
-            val base = "https://huggingface.co/$repo/resolve/main/"
+        for (base in p.fileBaseUrls) {
+            val source = if ("huggingface" in base) "Hugging Face" else "GitHub"
             try {
                 var done = 0L
                 for ((name, size) in p.files) {
                     val dest = File(dir(p), name)
-                    if (dest.length() == size) { done += size; continue }
+                    if (dest.length() == size || (name.endsWith(".gz") && File(dir(p), installedName(name)).length() > 0)) {
+                        done += size; continue
+                    }
                     val before = done
                     httpDownload(base + name, dest) { got, _ ->
-                        flow(p).value = State.Downloading(before + got, total, "Hugging Face")
+                        flow(p).value = State.Downloading(before + got, total, source)
                     }
                     done += dest.length()
                 }
@@ -112,15 +121,31 @@ object ModelManager {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Hugging Face mirror $repo unavailable: ${e.message}")
+                Log.w(TAG, "File source $base unavailable: ${e.message}")
             }
         }
         return false
     }
 
-    private suspend fun downloadTarball(p: EnginePack) {
+    private fun unpackGz(p: EnginePack) {
+        for (name in p.files.keys.filter { it.endsWith(".gz") }) {
+            val gz = File(dir(p), name)
+            if (!gz.exists()) continue
+            flow(p).value = State.Extracting
+            val out = File(dir(p), installedName(name))
+            val tmp = File(out.path + ".tmp")
+            java.util.zip.GZIPInputStream(BufferedInputStream(gz.inputStream(), 1 shl 16)).use { input ->
+                FileOutputStream(tmp).use { input.copyTo(it, 1 shl 16) }
+            }
+            out.delete()
+            if (!tmp.renameTo(out)) throw IOException("Could not unpack $name")
+            gz.delete()
+        }
+    }
+
+    private suspend fun downloadTarball(p: EnginePack, url: String) {
         val tar = File(cacheDir, "${p.id}.tar.bz2")
-        httpDownload(p.tarballUrl, tar) { got, total ->
+        httpDownload(url, tar) { got, total ->
             flow(p).value = State.Downloading(got, if (total > 0) total else p.approxBytes, "GitHub (sherpa-onnx)")
         }
         flow(p).value = State.Extracting

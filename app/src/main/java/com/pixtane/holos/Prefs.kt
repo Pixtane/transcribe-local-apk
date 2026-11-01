@@ -49,8 +49,9 @@ object Prefs {
         get() = sp.getFloat("cps", 0f)
         set(v) = sp.edit().putFloat("cps", v).apply()
 
-    fun engineFor(lang: String): String? = sp.getString("engine_$lang", null)
-    fun setEngineFor(lang: String, id: String) = sp.edit().putString("engine_$lang", id).apply()
+    // v2 keys: choices saved before «Денис» existed are ignored, so it becomes the Ukrainian default.
+    fun engineFor(lang: String): String? = sp.getString("engine2_$lang", null)
+    fun setEngineFor(lang: String, id: String) = sp.edit().putString("engine2_$lang", id).apply()
 
     /** Download and install new versions from GitHub automatically. */
     var autoUpdate: Boolean

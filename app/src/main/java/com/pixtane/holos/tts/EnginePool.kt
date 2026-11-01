@@ -4,6 +4,7 @@ import android.util.Log
 import com.k2fsa.sherpa.onnx.GenerationConfig
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsSupertonicModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig
@@ -113,6 +114,19 @@ class EnginePool private constructor(val pack: EnginePack) {
             ),
         ).samples
         EngineKind.VITS -> tts.generate(text, sid = sid.coerceAtLeast(0), speed = 1.0f).samples
+        EngineKind.STYLETTS2 -> {
+            // Our own front-end (dictionary stress + ipa-uk) produces the phonemes.
+            val ipa = frontend.toIpa(text).trim()
+            if (ipa.isEmpty() || ipa.none { it.isLetter() }) FloatArray(0)
+            else tts.generateWithConfig(
+                "",
+                GenerationConfig(sid = 0, speed = 1.0f, phonemeCodepoints = arrayOf(ipa.codePoints().toArray())),
+            ).samples
+        }
+    }
+
+    private val frontend: com.pixtane.holos.tts.uk.UkFrontend by lazy {
+        com.pixtane.holos.tts.uk.UkFrontend(java.io.File(ModelManager.file(pack, "stress.sqlite")))
     }
 
     /** Frees every idle engine (e.g. after the model was deleted). */
@@ -161,6 +175,10 @@ class EnginePool private constructor(val pack: EnginePack) {
             )
             EngineKind.VITS -> OfflineTtsModelConfig(
                 vits = OfflineTtsVitsModelConfig(model = f("model.onnx"), tokens = f("tokens.txt")),
+                numThreads = threadCount, debug = false, provider = "cpu",
+            )
+            EngineKind.STYLETTS2 -> OfflineTtsModelConfig(
+                kokoro = OfflineTtsKokoroModelConfig(model = f("model.onnx"), voices = f("voices.bin"), tokens = f("tokens.txt")),
                 numThreads = threadCount, debug = false, provider = "cpu",
             )
         }
