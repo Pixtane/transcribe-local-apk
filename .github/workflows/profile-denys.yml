@@ -1,0 +1,22 @@
+name: Profile «Денис» (manual)
+on:
+  workflow_dispatch:
+jobs:
+  profile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q onnx onnxruntime numpy soundfile
+      - name: Download pack
+        run: |
+          mkdir -p pack && cd pack
+          for f in model.onnx voices.bin tokens.txt; do curl -fsSL -o $f https://github.com/Pixtane/transcribe-local-apk/releases/download/voice-uk-denys-v1/$f; done
+      - run: nproc && lscpu | grep -E "Model name|Flags" | cut -c1-200
+      - run: python3 scripts/profile_denys.py pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: profile-output
+          path: out/
