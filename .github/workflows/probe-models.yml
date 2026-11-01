@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -q onnx onnxruntime numpy soundfile ipa-uk "sherpa-onnx==2.0.1"
+      - run: pip install -q onnx onnxruntime numpy soundfile "git+https://github.com/patriotyk/ipa-uk" "sherpa-onnx==2.0.1"
       - name: Download Supertonic 3 for comparison
         run: |
           curl -sSL https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2 | tar xj
