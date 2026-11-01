@@ -39,6 +39,8 @@ class SegmentPlayer {
     @Volatile private var outWritten = 0L
     @Volatile private var appliedSpeed = 1f
     @Volatile private var line: SourceDataLine? = null
+    /** Some drivers only take stereo: then every sample is written to both channels. */
+    @Volatile private var stereo = false
     @Volatile private var buffering = false
     @Volatile private var ended = false
 
@@ -214,15 +216,26 @@ class SegmentPlayer {
             }
             try {
                 if (active !== rec) {
-                    active = rec
-                    lastRequest = -1
                     if (lineRate != rec.sampleRate) {
                         line?.let { runCatching { it.stop(); it.close() } }
-                        line = openLine(rec.sampleRate)
+                        line = null; lineRate = 0
+                        val opened = try {
+                            openLine(rec.sampleRate)
+                        } catch (e: Exception) {
+                            // No usable audio output (e.g. headphones unplugged): retry shortly
+                            // without losing the requested position.
+                            CrashReport.crumb("audio output unavailable: $e")
+                            if (seek >= 0) synchronized(lock) { if (cSeek < 0) cSeek = seek }
+                            Thread.sleep(1000)
+                            continue
+                        }
+                        line = opened
                         lineRate = rec.sampleRate
                         sonic = null
                         volume = -1f
                     }
+                    active = rec
+                    lastRequest = -1
                     if (seek < 0) seek = 0
                 }
                 val l = line ?: continue
@@ -253,15 +266,21 @@ class SegmentPlayer {
 
                 // 1) Push pending output without blocking.
                 if (outLen > 0) {
-                    val room = l.available() / 2
+                    val bpf = if (stereo) 4 else 2
+                    val room = l.available() / bpf
                     val n = minOf(room, outLen)
                     if (n > 0) {
-                        if (outBytes.size < n * 2) outBytes = ByteArray(n * 2)
+                        if (outBytes.size < n * bpf) outBytes = ByteArray(n * bpf)
                         for (k in 0 until n) {
                             val v = out[outOff + k].toInt()
-                            outBytes[2 * k] = v.toByte(); outBytes[2 * k + 1] = (v shr 8).toByte()
+                            val lo = v.toByte(); val hi = (v shr 8).toByte()
+                            if (stereo) {
+                                outBytes[4 * k] = lo; outBytes[4 * k + 1] = hi; outBytes[4 * k + 2] = lo; outBytes[4 * k + 3] = hi
+                            } else {
+                                outBytes[2 * k] = lo; outBytes[2 * k + 1] = hi
+                            }
                         }
-                        l.write(outBytes, 0, n * 2)
+                        l.write(outBytes, 0, n * bpf)
                         outOff += n; outLen -= n; outWritten += n
                     }
                     if (outLen > 0) { Thread.sleep(8); continue }
@@ -338,10 +357,19 @@ class SegmentPlayer {
     }
 
     private fun openLine(rate: Int): SourceDataLine {
-        val format = AudioFormat(rate.toFloat(), 16, 1, true, false)
-        val l = AudioSystem.getSourceDataLine(format)
-        l.open(format, (rate / 3) * 2)
-        return l
+        var last: Exception? = null
+        for (channels in intArrayOf(1, 2)) {
+            try {
+                val format = AudioFormat(rate.toFloat(), 16, channels, true, false)
+                val l = AudioSystem.getSourceDataLine(format)
+                l.open(format, (rate / 3) * 2 * channels)
+                stereo = channels == 2
+                return l
+            } catch (e: Exception) {
+                last = e
+            }
+        }
+        throw last ?: IllegalStateException("No audio output")
     }
 
     private fun applyVolume(l: SourceDataLine, v: Float) {

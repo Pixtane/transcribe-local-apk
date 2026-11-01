@@ -87,7 +87,7 @@ fun HolosRoot(controller: MediaController, nav: Nav, droppedFile: String?, onDro
     }
     crash?.let { report -> CrashDialog(report) { crash = null } }
     Box(Modifier.fillMaxSize().background(HolosColors.Bg), contentAlignment = Alignment.TopCenter) {
-        Box(Modifier.fillMaxHeight().fillMaxWidth().widthIn(max = 860.dp)) {
+        Box(Modifier.fillMaxHeight().widthIn(max = 860.dp).fillMaxWidth()) {
             AnimatedContent(
                 targetState = nav.current,
                 transitionSpec = {
