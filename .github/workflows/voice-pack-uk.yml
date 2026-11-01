@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  TAG: voice-uk-denys-v1
+  TAG: voice-uk-denys-v2
 
 jobs:
   pack:
@@ -27,7 +27,12 @@ jobs:
             curl -fsSL -o "$f" "https://huggingface.co/news-production-app/news-voice-packs/resolve/main/uk/$f"
           done
       - name: Convert
-        run: python3 scripts/build_denys_pack.py src pack
+        run: |
+          python3 scripts/build_denys_pack.py src pack
+          # ~3x faster on CPU: int8 ConvInteger → float Conv (int8 weights kept behind DequantizeLinear)
+          python3 scripts/dequantize_convs.py pack/model.onnx pack/model.fast.onnx --compact
+          mv pack/model.fast.onnx pack/model.onnx
+          ls -la pack
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
@@ -35,5 +40,5 @@ jobs:
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
           gh release create "$TAG" pack/* --target "${{ github.sha }}" --prerelease --latest=false \
             --title "Voice pack: «Денис» (Ukrainian, StyleTTS2)" \
-            --notes "StyleTTS2 Ukrainian (patriotyk, MIT) wrapped for sherpa-onnx, with the lang-uk ukrainian-word-stress dictionary (MIT). Downloaded by the app; not an app release."
+            --notes "StyleTTS2 Ukrainian (patriotyk, MIT) wrapped for sherpa-onnx, decoder convolutions de-quantized for speed, with the lang-uk ukrainian-word-stress dictionary (MIT). Downloaded by the app; not an app release."
           ls -la pack
