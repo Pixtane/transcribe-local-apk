@@ -50,6 +50,7 @@ jobs:
       - name: Self-test the packaged app
         shell: pwsh
         run: |
+          $env:HOLOS_SELFTEST_NET = "1"
           $exe = "desktop/build/compose/binaries/main/app/Holos/Holos.exe"
           $report = "$env:RUNNER_TEMP\selftest.txt"
           Start-Process -FilePath $exe -ArgumentList "--selftest", "`"$report`"" -Wait

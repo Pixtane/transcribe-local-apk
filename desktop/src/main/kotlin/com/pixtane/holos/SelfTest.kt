@@ -29,6 +29,19 @@ object SelfTest {
                 c.createStatement().use { st -> st.executeQuery("select x'C0FF'").use { rs -> rs.next(); rs.getBytes(1).size.toString() } }
             }
         }
+        step("windows-1251") {
+            val b = "Київ".toByteArray(java.nio.charset.Charset.forName("windows-1251"))
+            check(b.size == 4) { "bad encoding" }
+            String(b, java.nio.charset.Charset.forName("windows-1251"))
+        }
+        step("ukrainian dates") {
+            java.text.SimpleDateFormat("d MMMM", java.util.Locale.forLanguageTag("uk")).format(java.util.Date(0))
+        }
+        if (System.getenv("HOLOS_SELFTEST_NET") != null) step("https") {
+            val c = java.net.URL("https://huggingface.co/").openConnection() as java.net.HttpURLConnection
+            c.connectTimeout = 15_000; c.readTimeout = 15_000
+            "HTTP ${c.responseCode}".also { c.disconnect() }
+        }
         step("mp3") {
             val enc = LameEncoder(AudioFormat(24000f, 16, 1, true, false), 64, MPEGMode.MONO.ordinal, LameEncoder.QUALITY_MIDDLE, false)
             val pcm = ByteArray(enc.pcmBufferSize)

@@ -84,7 +84,9 @@ compose.desktop {
             copyright = "© 2026 Pixtane"
             // Native engine libraries (sherpa-onnx + ONNX Runtime) go to app/resources.
             appResourcesRootDir.set(project.layout.projectDirectory.dir("native"))
-            includeAllModules = true
+            // jdeps-suggested modules plus ones it cannot see: windows-1251 (stress dictionary and
+            // old Cyrillic text files), TLS EC ciphers (model downloads) and Ukrainian locale data.
+            modules("java.instrument", "java.prefs", "java.sql", "jdk.unsupported", "jdk.charsets", "jdk.crypto.ec", "jdk.localedata", "jdk.accessibility")
             windows {
                 iconFile.set(project.file("icons/holos.ico"))
                 menu = true
