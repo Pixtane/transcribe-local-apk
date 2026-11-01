@@ -1,6 +1,6 @@
 name: Probe TTS models (manual)
 
-# Diagnostics only: lists files and configs of candidate Hugging Face models.
+# Diagnostics only: inspects candidate Hugging Face models and renders listening samples.
 on:
   workflow_dispatch:
 
@@ -8,24 +8,23 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: List repos and configs
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q onnx onnxruntime numpy soundfile
+      - name: Download Ukrainian StyleTTS2 pack
         run: |
-          for repo in dmytro-m/uk_UA-serhiy-high dmytro-m/uk-tts-serhiy dmytro-m/uk-tts-oleksa news-production-app/news-voice-packs vasyadeva/StyleTTS2-UA-Denys patriotyk/styletts2_ukrainian_multispeaker Mikhailo/stress-uk; do
-            echo "=================== $repo"
-            curl -s "https://huggingface.co/api/models/$repo/tree/main?recursive=true" | python3 -c "
-          import json,sys
-          try:
-            d=json.load(sys.stdin)
-            for f in d:
-              if f.get('type')=='file': print(f\"  {f.get('size',0):>12}  {f['path']}\")
-          except Exception as e: print('  (no listing)', e)"
-            curl -s "https://huggingface.co/api/models/$repo" | python3 -c "
-          import json,sys
-          d=json.load(sys.stdin); print('  license:', (d.get('cardData') or {}).get('license'), ' tags:', d.get('tags', [])[:12])" || true
+          mkdir -p uk && cd uk
+          for f in manifest.json vocab.txt style.bin model.onnx model.onnx.data stress.sqlite.gz LICENSE-styletts2-ukrainian.txt; do
+            curl -sSL -o "$f" "https://huggingface.co/news-production-app/news-voice-packs/resolve/main/uk/$f"
           done
-          for f in dmytro-m/uk_UA-serhiy-high/resolve/main/serhiy.onnx.json; do
-            echo "=================== $f"; curl -sL "https://huggingface.co/$f" | head -c 3000; echo
-          done
-          echo "=================== serhiy README"; curl -sL https://huggingface.co/dmytro-m/uk_UA-serhiy-high/raw/main/README.md | head -c 4000
-          echo "=================== voice-packs README"; curl -sL https://huggingface.co/news-production-app/news-voice-packs/raw/main/README.md | head -c 5000
-          echo "=================== oleksa README"; curl -sL https://huggingface.co/dmytro-m/uk-tts-oleksa/raw/main/README.md | head -c 4000
+          ls -la
+      - name: Inspect
+        run: python3 scripts/probe_styletts2.py inspect uk
+      - name: Render samples
+        run: python3 scripts/probe_styletts2.py render uk out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: probe-output
+          path: out/
