@@ -106,7 +106,8 @@ object SynthesisManager {
 
     private fun ensureRunning() {
         if (runner?.isActive == true) return
-        startService()
+        // The foreground service is started only once a recording really starts generating
+        // (see runLoop): starting it and then having nothing to do would crash on Android 12+.
         runner = HolosApp.scope.launch { runLoop() }
     }
 
@@ -131,6 +132,7 @@ object SynthesisManager {
             }
             activeId = id
             _status.value = Status(id, rec.ready.value, rec.n, loadingEngines = true)
+            startService()
             val job = HolosApp.scope.launch { generate(rec) }
             current = job
             job.join()
@@ -139,8 +141,8 @@ object SynthesisManager {
         _status.value = Status(error = lastError)
         lastError = null
         SmartScheduler.ensureScheduled()
-        val ctx = HolosApp.instance
-        ctx.stopService(Intent(ctx, SynthesisService::class.java))
+        // The service stops itself once it has seen the idle status. Never stop it from here:
+        // stopping a service before it called startForeground() crashes the app.
     }
 
     private suspend fun generate(rec: Recording) {

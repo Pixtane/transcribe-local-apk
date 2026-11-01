@@ -20,6 +20,8 @@ import com.pixtane.holos.ui.MainActivity
 import com.pixtane.holos.ui.formatDuration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /** Keeps generation running with the screen off: foreground notification + partial wake lock. */
@@ -57,11 +59,13 @@ class SynthesisService : Service() {
         }
         if (watcher == null) {
             watcher = HolosApp.scope.launch(Dispatchers.Main) {
-                SynthesisManager.status.collect { st ->
+                SynthesisManager.status.collectLatest { st ->
                     if (st.running) {
                         runCatching { NotificationManagerCompat.from(this@SynthesisService).notify(NOTIFICATION_ID, build(st)) }
-                    } else if (SynthesisManager.isIdle()) {
-                        stopSelf()
+                    } else {
+                        // Give the runner a moment to pick up the next queued recording.
+                        delay(2_000)
+                        if (SynthesisManager.isIdle() && !SynthesisManager.status.value.running) stopSelf()
                     }
                 }
             }
