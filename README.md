@@ -13,7 +13,8 @@ sherpa-onnx GitHub release as fallback); after that no internet is needed.
 - **Seeking anywhere**, even into text that is not generated yet. The player waits while the workers jump to that sentence. The seek bar shows which parts already have audio, like YouTube's buffered bar.
 - **Lyrics-style reading view**, as in YouTube Music: past, current and upcoming text are styled differently and the current sentence is highlighted word by word. The view auto-scrolls; tap any sentence to jump there.
 - **Playback speed** 0.75×–2.5× (pitch-preserving Sonic time-stretch).
-- **Library** of saved recordings with generation and listening progress, rename and delete.
+- **Library** of saved recordings with generation and listening progress, rename, duplicate and delete.
+- **Export to M4A** (AAC, ~64 kbit/s) into Music/Holos, playable in any music app, with a share button.
 - **Import PDF, EPUB, MOBI/AZW/PRC, TXT, Markdown and HTML**, or share/open files and text from other apps.
 - **Chapters** come from the EPUB table of contents, PDF bookmarks, MOBI TOC links, or headings like "Chapter 3" / "Розділ 2" / "Kapitel 1". The player shows the current chapter. Its chapter sheet searches chapter titles and the full text, and jumps to any hit.
 - Edge-to-edge UI padded for the camera cutout/notch and system bars.

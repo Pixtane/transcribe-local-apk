@@ -35,6 +35,9 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
+import com.pixtane.holos.ui.components.ExportDialog
+import com.pixtane.holos.ui.components.rememberExporter
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Settings
@@ -97,6 +100,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
     var menuFor by remember { mutableStateOf<Recording?>(null) }
     var renaming by remember { mutableStateOf<Recording?>(null) }
     var deleting by remember { mutableStateOf<Recording?>(null) }
+    val export = rememberExporter()
 
     Box(
         Modifier
@@ -158,6 +162,11 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                                 onClick = { menuFor = null; nav.push(Screen.Create(duplicateOf = rec.id)) },
                             )
                             DropdownMenuItem(
+                                text = { Text(t("Export audio (M4A)", "Експорт аудіо (M4A)")) },
+                                leadingIcon = { Icon(Icons.Rounded.Download, null) },
+                                onClick = { menuFor = null; export(rec) },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(t("Delete", "Видалити"), color = HolosColors.Danger) },
                                 leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = HolosColors.Danger) },
                                 onClick = { deleting = rec; menuFor = null },
@@ -203,6 +212,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
         }
     }
 
+    ExportDialog()
     renaming?.let { rec ->
         var title by remember(rec.id) { mutableStateOf(rec.title) }
         AlertDialog(

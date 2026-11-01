@@ -40,6 +40,9 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Download
+import com.pixtane.holos.ui.components.ExportDialog
+import com.pixtane.holos.ui.components.rememberExporter
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MyLocation
@@ -256,6 +259,7 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
     var showChapters by remember { mutableStateOf(false) }
     val chapterIdx by remember { derivedStateOf { rec.chapterAt(curSeg) } }
     var confirmDelete by remember { mutableStateOf(false) }
+    val export = rememberExporter()
 
     Box(
         Modifier
@@ -287,6 +291,11 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, t("More", "Більше")) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(t("Export audio (M4A)", "Експорт аудіо (M4A)")) },
+                            leadingIcon = { Icon(Icons.Rounded.Download, null) },
+                            onClick = { menu = false; export(rec) },
+                        )
                         DropdownMenuItem(
                             text = { Text(t("Delete", "Видалити"), color = HolosColors.Danger) },
                             leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = HolosColors.Danger) },
@@ -416,6 +425,7 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
         )
     }
 
+    ExportDialog()
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
