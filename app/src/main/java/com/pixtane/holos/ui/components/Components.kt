@@ -136,7 +136,7 @@ fun ModelCard(pack: EnginePack, modifier: Modifier = Modifier, compact: Boolean 
                 ModelManager.State.Missing -> {
                     if (!compact) {
                         Text(
-                            t("Downloaded once, then everything runs on your phone — no internet, no account, your texts never leave the device.", "Завантажується один раз, далі все працює на телефоні — без інтернету й акаунта, тексти не залишають пристрій."),
+                            t("Downloaded once, then everything runs on this device — no internet, no account, your texts never leave the device.", "Завантажується один раз, далі все працює на пристрої — без інтернету й акаунта, тексти не залишають пристрій."),
                             style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted,
                         )
                         Spacer(Modifier.height(12.dp))

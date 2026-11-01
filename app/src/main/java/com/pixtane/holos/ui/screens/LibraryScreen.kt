@@ -162,7 +162,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
                                 onClick = { menuFor = null; nav.push(Screen.Create(duplicateOf = rec.id)) },
                             )
                             DropdownMenuItem(
-                                text = { Text(t("Export audio (M4A)", "Експорт аудіо (M4A)")) },
+                                text = { Text(t("Export audio", "Експортувати аудіо")) },
                                 leadingIcon = { Icon(Icons.Rounded.Download, null) },
                                 onClick = { menuFor = null; export(rec) },
                             )
@@ -229,7 +229,7 @@ fun LibraryScreen(nav: Nav, controller: MediaController?) {
         AlertDialog(
             onDismissRequest = { deleting = null },
             title = { Text(t("Delete recording?", "Видалити запис?")) },
-            text = { Text(t("“${rec.title}” and its audio will be removed from this phone.", "«${rec.title}» і його аудіо буде видалено з телефону.")) },
+            text = { Text(t("“${rec.title}” and its audio will be removed from this device.", "«${rec.title}» і його аудіо буде видалено з пристрою.")) },
             confirmButton = {
                 TextButton(onClick = {
                     SynthesisManager.cancel(rec.id)

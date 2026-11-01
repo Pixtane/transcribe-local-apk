@@ -62,6 +62,33 @@ No open model speaks Latin or Church Slavonic, so Holos rewrites the text and re
 
 Other models were tested and rejected: Kokoro (too slow on CPU), KittenTTS and Piper (need espeak-ng, which sherpa-onnx 2.x removed), and Meta MMS (non-commercial license).
 
+## Windows app
+
+`desktop/` is the same app for Windows 10/11 (x64), built with Compose Multiplatform. It
+compiles most of the Android code directly: languages, engine catalogue and downloads, the
+engine pool, sentence splitting, Ukrainian stress and IPA, the EPUB/MOBI importers, recordings,
+and the library, player and chapter screens. The desktop module adds only the platform parts:
+- a Java Sound player with Sonic speed control;
+- PDF import via Apache PDFBox and the stress dictionary via SQLite JDBC;
+- MP3 export (jump3r);
+- smart generation that runs only while the PC is plugged in;
+- an MSI updater;
+- file dialogs and drag & drop;
+- keyboard shortcuts in the player: Space, ←/→ and media keys.
+
+The sherpa-onnx engine is the same: its Kotlin API classes come from the Android AAR, and the natives
+from the official `win-x64-jni` build.
+
+- Installer: GitHub release `windows-v1.0.N` → `Holos-Setup-1.0.N.msi` (per-user, no admin
+  rights). A portable zip is attached too. Releases are built by
+  `.github/workflows/build-windows.yml`, which also self-tests the packaged app (native engine,
+  SQLite, MP3 encoder). Windows releases are never marked "latest", so phones keep updating
+  from the APK releases.
+- Data lives in `%LOCALAPPDATA%\Holos` (models, recordings); settings in the registry
+  (`HKCU\Software\JavaSoft\Prefs\com\pixtane\holos`).
+- Local build: `scripts/fetch-sherpa-desktop.sh windows` (or `linux`), then
+  `./gradlew -p desktop run` / `packageMsi`.
+
 ## Google Play
 
 See [PLAY_STORE.md](PLAY_STORE.md) for the full release checklist (paid app, upload key, store listing, policies).

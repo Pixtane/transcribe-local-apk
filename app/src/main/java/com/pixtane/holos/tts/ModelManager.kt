@@ -45,9 +45,11 @@ object ModelManager {
     /** Bumped whenever any engine becomes ready or is deleted. */
     val changes = MutableStateFlow(0)
 
-    fun init(context: Context) {
-        root = File(context.filesDir, "models")
-        cacheDir = context.cacheDir
+    fun init(context: Context) = init(File(context.filesDir, "models"), context.cacheDir)
+
+    fun init(modelsDir: File, cache: File) {
+        root = modelsDir
+        cacheDir = cache
         for (p in EngineCatalog.ALL) {
             flow(p).value = if (isReady(p)) State.Ready else State.Missing
             if (isOutdated(p)) download(p) // e.g. faster «Денис» model; unchanged files are kept

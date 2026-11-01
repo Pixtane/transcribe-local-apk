@@ -28,8 +28,10 @@ object RecordingRepository {
     private val _list = MutableStateFlow<List<Recording>>(emptyList())
     val list: StateFlow<List<Recording>> = _list
 
-    fun init(context: Context) {
-        root = File(context.filesDir, "recordings").apply { mkdirs() }
+    fun init(context: Context) = init(File(context.filesDir, "recordings"))
+
+    fun init(dir: File) {
+        root = dir.apply { mkdirs() }
         HolosApp.scope.launch(Dispatchers.IO) { refresh() }
     }
 

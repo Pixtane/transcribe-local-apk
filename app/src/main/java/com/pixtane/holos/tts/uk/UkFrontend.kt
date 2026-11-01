@@ -1,6 +1,5 @@
 package com.pixtane.holos.tts.uk
 
-import android.database.sqlite.SQLiteDatabase
 import java.io.File
 import java.nio.charset.Charset
 import java.text.Normalizer
@@ -10,7 +9,7 @@ import java.text.Normalizer
  * lang-uk dictionary (2.9M word forms), then IPA via [UkIpa].
  */
 class UkFrontend(stressDb: File) {
-    private val db: SQLiteDatabase = SQLiteDatabase.openDatabase(stressDb.path, null, SQLiteDatabase.OPEN_READONLY)
+    private val db = StressDb(stressDb)
     private val cp1251: Charset = Charset.forName("windows-1251")
     private val word = Regex("[А-ЩЬЮЯҐЄІЇа-щьюяґєії'’ʼ`]+")
 
@@ -44,14 +43,11 @@ class UkFrontend(stressDb: File) {
         } catch (e: Exception) { return null }
         val hex = bytes.joinToString("") { "%02X".format(it) }
         for (table in arrayOf("prefer", "stress")) {
-            db.rawQuery("select stress from $table where word = x'$hex'", null).use { c ->
-                if (c.moveToFirst()) {
-                    val blob = c.getBlob(0).map { it.toInt() and 0xff }
-                    // Heteronyms: records "positions… 0xFE tags… 0xFF"; without context use the first.
-                    val cut = blob.indexOf(0xFE)
-                    return (if (cut >= 0) blob.subList(0, cut) else blob).distinct()
-                }
-            }
+            val raw = db.blob(table, hex) ?: continue
+            val blob = raw.map { it.toInt() and 0xff }
+            // Heteronyms: records "positions… 0xFE tags… 0xFF"; without context use the first.
+            val cut = blob.indexOf(0xFE)
+            return (if (cut >= 0) blob.subList(0, cut) else blob).distinct()
         }
         return null
     }

@@ -27,8 +27,8 @@ class Lang(
         private fun l(code: String, en: String, nat: String, flag: String, sample: String, accent: Long, deep: Long, tts: String = code, tr: ((String) -> String)? = null) =
             Lang(code, en, nat, flag, sample, Color(accent), Color(deep), tts, tr)
 
-        val UK = l("uk", "Ukrainian", "Українська", "🇺🇦", "Привіт! Я прочитаю ваш текст уголос — повністю на телефоні, без інтернету.", 0xFFFACC15, 0xFF1D3B8F)
-        val EN = l("en", "English", "English", "🇬🇧", "Hello! I can read any text aloud, entirely on your phone, with no internet needed.", 0xFF5EEAD4, 0xFF134E4A)
+        val UK = l("uk", "Ukrainian", "Українська", "🇺🇦", "Привіт! Я прочитаю ваш текст уголос — повністю на вашому пристрої, без інтернету.", 0xFFFACC15, 0xFF1D3B8F)
+        val EN = l("en", "English", "English", "🇬🇧", "Hello! I can read any text aloud, entirely on your device, with no internet needed.", 0xFF5EEAD4, 0xFF134E4A)
         val DE = l("de", "German", "Deutsch", "🇩🇪", "Hallo! Ich lese Ihnen jeden Text vor – direkt auf dem Handy, ganz ohne Internet.", 0xFFFB923C, 0xFF6B1D1D)
 
         val ALL: List<Lang> = listOf(

@@ -292,7 +292,7 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, t("More", "Більше")) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         DropdownMenuItem(
-                            text = { Text(t("Export audio (M4A)", "Експорт аудіо (M4A)")) },
+                            text = { Text(t("Export audio", "Експортувати аудіо")) },
                             leadingIcon = { Icon(Icons.Rounded.Download, null) },
                             onClick = { menu = false; export(rec) },
                         )
@@ -430,7 +430,7 @@ fun PlayerScreen(nav: Nav, controller: MediaController?, id: String) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(t("Delete recording?", "Видалити запис?")) },
-            text = { Text(t("“${rec.title}” and its audio will be removed from this phone.", "«${rec.title}» і його аудіо буде видалено з телефону.")) },
+            text = { Text(t("“${rec.title}” and its audio will be removed from this device.", "«${rec.title}» і його аудіо буде видалено з пристрою.")) },
             confirmButton = {
                 TextButton(onClick = {
                     SynthesisManager.cancel(id)

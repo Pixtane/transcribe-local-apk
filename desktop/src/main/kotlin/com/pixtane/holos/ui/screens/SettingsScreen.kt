@@ -1,0 +1,400 @@
+package com.pixtane.holos.ui.screens
+
+import com.pixtane.holos.tts.uiBlurb
+import com.pixtane.holos.recordingsCount
+import com.pixtane.holos.UiLang
+import com.pixtane.holos.uiName
+import com.pixtane.holos.tts.uiName
+import com.pixtane.holos.stepsCount
+import com.pixtane.holos.t
+import android.os.SystemClock
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pixtane.holos.Lang
+import com.pixtane.holos.Prefs
+import com.pixtane.holos.data.RecordingRepository
+import com.pixtane.holos.synth.SynthesisManager
+import com.pixtane.holos.tts.EngineCatalog
+import com.pixtane.holos.tts.EnginePack
+import com.pixtane.holos.tts.EnginePool
+import com.pixtane.holos.tts.ModelManager
+import com.pixtane.holos.ui.CHARS_PER_PAGE
+import com.pixtane.holos.ui.Nav
+import com.pixtane.holos.ui.components.GradientButton
+import com.pixtane.holos.ui.components.ModelCard
+import com.pixtane.holos.ui.components.SectionLabel
+import com.pixtane.holos.ui.components.SelectableCard
+import com.pixtane.holos.ui.formatBytes
+import com.pixtane.holos.ui.formatDuration
+import com.pixtane.holos.ui.theme.HolosColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
+
+private val BENCH_TEXT = listOf(
+    "Штучний інтелект змінює світ навколо нас, і сьогодні синтез мовлення працює прямо на телефоні.",
+    "Ваші тексти залишаються приватними, а озвучення доступне будь-де: у метро, в літаку чи в горах.",
+    "Сучасні моделі звучать природно, правильно ставлять наголоси і впевнено читають довгі речення.",
+    "Достатньо вставити текст, вибрати голос, і через кілька секунд можна слухати перший абзац.",
+    "Поки ви слухаєте початок, решта тексту генерується у фоновому режимі навіть із вимкненим екраном.",
+    "Прогрес зберігається після кожного речення, тож нічого не втрачається, якщо застосунок закриють.",
+    "Для німецької та англійської мов використовується та сама модель із тими самими десятьма голосами.",
+    "Швидкість залежить від кількості паралельних рушіїв і кількості кроків генерації для кожного речення.",
+)
+
+@Composable
+fun SettingsScreen(nav: Nav) {
+    val scope = rememberCoroutineScope()
+    val model by ModelManager.state(EngineCatalog.SUPERTONIC).collectAsStateWithLifecycle()
+    val synth by SynthesisManager.status.collectAsStateWithLifecycle()
+    val recordings by RecordingRepository.list.collectAsStateWithLifecycle()
+
+    var steps by remember { mutableIntStateOf(Prefs.steps) }
+    var workers by remember { mutableFloatStateOf(Prefs.workers.toFloat()) }
+    var threads by remember { mutableFloatStateOf(Prefs.threadsPerWorker.toFloat()) }
+    var compact by remember { mutableStateOf(Prefs.compactAudio) }
+    var benchRunning by remember { mutableStateOf(false) }
+    var benchResult by remember { mutableStateOf<String?>(null) }
+
+    Column(Modifier.fillMaxSize().background(HolosColors.Bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, t("Back", "Назад")) }
+            Text(t("Settings", "Налаштування"), style = MaterialTheme.typography.titleLarge)
+        }
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp)) {
+            SectionLabel(t("App language", "Мова застосунку"))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                for ((code, label) in listOf("uk" to "🇺🇦  Українська", "en" to "🇬🇧  English")) {
+                    SelectableCard(selected = UiLang.state.value == code, onClick = { UiLang.set(code) }, modifier = Modifier.weight(1f)) {
+                        Text(label, style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(t("Default quality", "Якість за замовчуванням"))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                for ((s, label) in QUALITY_PRESETS) {
+                    SelectableCard(selected = steps == s, onClick = { steps = s; Prefs.steps = s }, modifier = Modifier.weight(1f)) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(label, style = MaterialTheme.typography.labelLarge)
+                            Text(stepsCount(s), style = MaterialTheme.typography.labelSmall, color = HolosColors.Muted)
+                        }
+                    }
+                }
+            }
+            Text(
+                t("Supertonic is a flow-matching model: each step refines the audio. 2 steps is ~2× faster than 5 with slightly rougher sound.", "Supertonic уточнює звук за кілька кроків: 2 кроки приблизно вдвічі швидші за 5, але звучать трохи грубіше."),
+                style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted, modifier = Modifier.padding(top = 8.dp),
+            )
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(t("Performance", "Продуктивність"))
+            Card {
+                LabeledSlider(
+                    t("Parallel engines", "Паралельні рушії"), "${workers.toInt()}",
+                    t("Each engine works on a different sentence (~200 MB RAM each). About half the processor's cores is a good start.", "Кожен рушій озвучує окреме речення (~200 МБ пам'яті кожен). Для початку — приблизно половина ядер процесора."),
+                    workers, 1f..12f, 10,
+                ) { workers = it; Prefs.workers = it.toInt() }
+                Spacer(Modifier.height(16.dp))
+                LabeledSlider(
+                    t("Threads per engine", "Потоків на рушій"), "${threads.toInt()}",
+                    t("More threads rarely help; parallel engines scale better.", "Більше потоків рідко допомагає — паралельні рушії ефективніші."),
+                    threads, 1f..4f, 2,
+                ) { threads = it; Prefs.threadsPerWorker = it.toInt() }
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(t("Compact audio", "Компактне аудіо"), style = MaterialTheme.typography.titleSmall)
+                        Text(t("Store speech at 22 kHz (half the size, near-identical for voice)", "Зберігати мовлення у 22 кГц (удвічі менше місця, для голосу майже без різниці)"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+                    }
+                    Switch(
+                        checked = compact, onCheckedChange = { compact = it; Prefs.compactAudio = it },
+                        colors = SwitchDefaults.colors(checkedTrackColor = HolosColors.VioletDeep),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(t("Speed test", "Тест швидкості"))
+            Card {
+                val engineChanges by ModelManager.changes.collectAsStateWithLifecycle()
+                val ready = remember(engineChanges) { ModelManager.readyPacks() }
+                var benchPackId by remember { mutableStateOf<String?>(null) }
+                val benchPack = ready.firstOrNull { it.id == benchPackId } ?: ready.firstOrNull()
+                if (ready.size > 1) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (p in ready) {
+                            SelectableCard(selected = p.id == benchPack?.id, onClick = { benchPackId = p.id; benchResult = null }) {
+                                Text(p.uiName(), style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                val cps = benchPack?.let { Prefs.cpsFor(it.id) } ?: 0f
+                Text(
+                    if (cps > 0) t("Last measured: ${cps.toInt()} characters/s → 10 pages in ~${formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong())}", "Останній вимір: ${cps.toInt()} символів/с → 10 сторінок за ~${formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong())}")
+                    else t("Measure how fast this computer generates speech with the current settings.", "Виміряйте, як швидко цей комп'ютер генерує мовлення з поточними налаштуваннями."),
+                    style = MaterialTheme.typography.bodyMedium, color = HolosColors.Muted,
+                )
+                benchResult?.let {
+                    Spacer(Modifier.height(8.dp))
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = HolosColors.Text)
+                }
+                Spacer(Modifier.height(12.dp))
+                GradientButton(
+                    text = if (benchRunning) t("Measuring…", "Вимірювання…") else t("Run speed test", "Запустити тест"),
+                    enabled = !benchRunning && !synth.running && benchPack != null,
+                    modifier = Modifier.fillMaxWidth(),
+                    leading = {
+                        if (benchRunning) CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        else Icon(Icons.Rounded.Speed, null, tint = Color.White)
+                    },
+                    onClick = {
+                        benchRunning = true; benchResult = null
+                        scope.launch {
+                            benchResult = try { runBenchmark(benchPack!!, steps) } catch (e: Throwable) { t("Failed: ${e.message}", "Помилка: ${e.message}") }
+                            benchRunning = false
+                        }
+                    },
+                )
+                if (synth.running) {
+                    Text(t("Available when no recording is being generated.", "Доступно, коли не йде генерація запису."), style = MaterialTheme.typography.bodySmall, color = HolosColors.Faint, modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(t("Voice engines", "Голосові рушії"))
+            EnginesSection(synth.running)
+
+            Spacer(Modifier.height(24.dp))
+            if (com.pixtane.holos.update.Updater.enabled) {
+                SectionLabel(t("Updates", "Оновлення"))
+                com.pixtane.holos.ui.components.UpdateSettings()
+                Spacer(Modifier.height(24.dp))
+            }
+            SectionLabel(t("About", "Про застосунок"))
+            AboutSection()
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel(t("Storage", "Сховище"))
+            Card {
+                val bytes = remember(recordings) { recordings.sumOf { it.audioBytesOnDisk() } }
+                Text("${recordingsCount(recordings.size)} · ${formatBytes(bytes)} " + t("of audio", "аудіо"), style = MaterialTheme.typography.bodyMedium)
+                Text(com.pixtane.holos.HolosApp.dataDir.absolutePath, style = MaterialTheme.typography.bodySmall, color = HolosColors.Faint)
+                TextButton(onClick = { com.pixtane.holos.ui.DesktopOs.open(com.pixtane.holos.HolosApp.dataDir) }) {
+                    Text(t("Open data folder", "Відкрити теку з даними"), color = HolosColors.Violet)
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+
+}
+
+private suspend fun runBenchmark(pack: EnginePack, steps: Int): String = withContext(Dispatchers.Default) {
+    val workers = Prefs.workers
+    val pool = EnginePool.of(pack)
+    pool.configure(workers, maxOf(Prefs.threadsPerWorker, pack.minThreads))
+    val lang = if ("uk" in pack.languages) Lang.UK else Lang.of(pack.languages.first())
+    val loadStart = SystemClock.elapsedRealtime()
+    // Warm-up: make sure every engine is loaded so the timing below is pure generation.
+    coroutineScope {
+        (0 until workers).map {
+            async { pool.withEngine { tts -> pool.generate(tts, lang.prepare(lang.sample.take(20)), lang.ttsCode, 0, 1) } }
+        }.awaitAll()
+    }
+    val loadMs = SystemClock.elapsedRealtime() - loadStart
+    val next = AtomicInteger(0)
+    val texts = if (lang === Lang.UK) BENCH_TEXT else List(8) { lang.sample }
+    val chars = texts.sumOf { it.length }
+    val t0 = SystemClock.elapsedRealtime()
+    var audioSamples = 0L
+    coroutineScope {
+        (0 until workers).map {
+            async {
+                var local = 0L
+                while (true) {
+                    val i = next.getAndIncrement()
+                    if (i >= texts.size) break
+                    local += pool.withEngine { tts -> pool.generate(tts, lang.prepare(texts[i]), lang.ttsCode, 0, steps).size }
+                }
+                local
+            }
+        }.awaitAll().forEach { audioSamples += it }
+    }
+    val secs = (SystemClock.elapsedRealtime() - t0) / 1000f
+    val cps = chars / secs
+    Prefs.setCpsFor(pack.id, cps)
+    val audioSec = audioSamples / pool.pack.sampleRate.toFloat()
+    String.format(
+        Locale.US,
+        t("%d chars in %.1f s → %.0f chars/s (%.1f× real time). 10 pages ≈ %s. Engines loaded in %.1f s.",
+            "%d символів за %.1f с → %.0f симв/с (%.1f× від реального часу). 10 сторінок ≈ %s. Рушії завантажено за %.1f с."),
+        chars, secs, cps, audioSec / secs, formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong()), loadMs / 1000f,
+    )
+}
+
+@Composable
+private fun Card(content: @Composable () -> Unit) {
+    Surface(shape = RoundedCornerShape(20.dp), color = HolosColors.Surface, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(18.dp)) { content() }
+    }
+}
+
+@Composable
+private fun LabeledSlider(
+    title: String, value: String, hint: String,
+    current: Float, range: ClosedFloatingPointRange<Float>, steps: Int,
+    onChange: (Float) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.titleSmall, color = HolosColors.Violet)
+    }
+    Slider(
+        value = current, onValueChange = { onChange(Math.round(it).toFloat()) },
+        valueRange = range, steps = steps,
+        colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = HolosColors.Violet, inactiveTrackColor = HolosColors.SurfaceHigh),
+    )
+    Text(hint, style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+}
+
+@Composable
+private fun EnginesSection(busy: Boolean) {
+    var expandCoqui by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        EngineRow(EngineCatalog.DENYS, busy)
+        EngineRow(EngineCatalog.SUPERTONIC, busy)
+        Card {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { expandCoqui = !expandCoqui }) {
+                Column(Modifier.weight(1f)) {
+                    Text(t("Coqui VITS voices", "Голоси Coqui VITS"), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        t(
+                            "Very fast single-voice models, one per language (${EngineCatalog.COQUI.size} languages, ~67 MB each). A lighter alternative to Supertonic.",
+                            "Дуже швидкі моделі з одним голосом, окремо для кожної мови (${EngineCatalog.COQUI.size} мови, ~67 МБ кожна). Легша альтернатива Supertonic.",
+                        ),
+                        style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted,
+                    )
+                }
+                Icon(if (expandCoqui) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, null)
+            }
+            if (expandCoqui) {
+                Spacer(Modifier.height(8.dp))
+                for (p in EngineCatalog.COQUI) CompactEngineRow(p, busy)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EngineRow(pack: EnginePack, busy: Boolean) {
+    val state by ModelManager.state(pack).collectAsStateWithLifecycle()
+    var confirm by remember { mutableStateOf(false) }
+    if (state != ModelManager.State.Ready) {
+        ModelCard(pack)
+    } else Card {
+        Text(pack.uiName(), style = MaterialTheme.typography.titleSmall)
+        if (pack.recommendedFor.isNotEmpty()) {
+            com.pixtane.holos.ui.components.Pill(t("Recommended for Ukrainian", "Рекомендовано для української"), HolosColors.Success)
+        }
+        Text(pack.uiBlurb(), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+        Text(pack.license, style = MaterialTheme.typography.labelSmall, color = HolosColors.Faint, modifier = Modifier.padding(top = 4.dp))
+        Text(t("On disk: ${formatBytes(pack.approxBytes)}", "На диску: ${formatBytes(pack.approxBytes)}"), style = MaterialTheme.typography.bodySmall, color = HolosColors.Muted)
+        TextButton(onClick = { confirm = true }, enabled = !busy) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) }
+    }
+    if (confirm) DeleteEngineDialog(pack) { confirm = false }
+}
+
+@Composable
+private fun CompactEngineRow(pack: EnginePack, busy: Boolean) {
+    val state by ModelManager.state(pack).collectAsStateWithLifecycle()
+    var confirm by remember { mutableStateOf(false) }
+    val lang = com.pixtane.holos.Lang.of(pack.languages.first())
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(lang.flag, modifier = Modifier.width(32.dp))
+        Column(Modifier.weight(1f)) {
+            Text(lang.uiName(), style = MaterialTheme.typography.bodyMedium)
+            val sub = when (val st = state) {
+                is ModelManager.State.Downloading -> t("${formatBytes(st.downloaded)} of ${formatBytes(st.total)}", "${formatBytes(st.downloaded)} з ${formatBytes(st.total)}")
+                ModelManager.State.Extracting -> t("Unpacking…", "Розпакування…")
+                is ModelManager.State.Failed -> t("Failed: ${st.message}", "Помилка: ${st.message}")
+                ModelManager.State.Ready -> t("Installed", "Встановлено")
+                ModelManager.State.Missing -> formatBytes(pack.approxBytes)
+            }
+            Text(sub, style = MaterialTheme.typography.labelSmall, color = if (state is ModelManager.State.Failed) HolosColors.Danger else HolosColors.Muted)
+        }
+        when (state) {
+            ModelManager.State.Ready -> TextButton(onClick = { confirm = true }, enabled = !busy) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) }
+            is ModelManager.State.Downloading, ModelManager.State.Extracting ->
+                TextButton(onClick = { ModelManager.cancel(pack) }) { Text(t("Cancel", "Скасувати")) }
+            else -> TextButton(onClick = { ModelManager.download(pack) }) { Text(t("Download", "Завантажити"), color = HolosColors.Violet) }
+        }
+    }
+    if (confirm) DeleteEngineDialog(pack) { confirm = false }
+}
+
+@Composable
+private fun DeleteEngineDialog(pack: EnginePack, onDone: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text(t("Delete ${pack.name}?", "Видалити ${pack.uiName()}?")) },
+        text = { Text(t("Frees ${formatBytes(pack.approxBytes)}. Saved recordings still play; new ones need this engine again.", "Звільнить ${formatBytes(pack.approxBytes)}. Збережені записи й далі гратимуть; для нових знадобиться цей рушій.")) },
+        confirmButton = { TextButton(onClick = { ModelManager.delete(pack); onDone() }) { Text(t("Delete", "Видалити"), color = HolosColors.Danger) } },
+        dismissButton = { TextButton(onClick = onDone) { Text(t("Cancel", "Скасувати")) } },
+    )
+}

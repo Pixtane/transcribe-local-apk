@@ -1,0 +1,89 @@
+name: Build Windows app
+
+on:
+  push:
+    branches: [main, "claude/**"]
+    paths:
+      - "desktop/**"
+      - "app/src/main/java/**"
+      - "scripts/fetch-sherpa-desktop.sh"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish as a Windows release (installed Windows apps update to it)"
+        type: boolean
+        default: true
+      notes:
+        description: "What's new. Empty = last commit message."
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch sherpa-onnx (Kotlin API + Windows JNI)
+        run: ./scripts/fetch-sherpa-desktop.sh windows
+
+      - name: Build installer and portable app
+        env:
+          HOLOS_DESKTOP_BUILD: ${{ github.run_number }}
+        run: ./gradlew --no-daemon -p desktop packageMsi createDistributable --stacktrace
+
+      - name: Self-test the packaged app
+        shell: pwsh
+        run: |
+          $exe = "desktop/build/compose/binaries/main/app/Holos/Holos.exe"
+          $report = "$env:RUNNER_TEMP\selftest.txt"
+          Start-Process -FilePath $exe -ArgumentList "--selftest", "`"$report`"" -Wait
+          Get-Content $report
+          if (Select-String -Path $report -Pattern "^FAIL" -Quiet) { Write-Error "Self-test failed"; exit 1 }
+
+      - name: Collect
+        id: out
+        shell: pwsh
+        run: |
+          $v = "1.0.${{ github.run_number }}"
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item (Get-ChildItem desktop/build/compose/binaries/main/msi/*.msi | Select-Object -First 1).FullName "out/Holos-Setup-$v.msi"
+          Compress-Archive -Path desktop/build/compose/binaries/main/app/Holos -DestinationPath "out/Holos-Windows-portable-$v.zip"
+          Get-ChildItem out | Format-Table Name, Length
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Holos-Windows-${{ steps.out.outputs.version }}
+          path: out/*
+
+      - name: Publish GitHub release
+        # Tagged windows-v…, never marked "latest": phones update from the latest (APK) release.
+        if: ${{ vars.PUBLISH_APK_RELEASES != 'false' && (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.publish)) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES_INPUT: ${{ inputs.notes }}
+        run: |
+          NOTES="$NOTES_INPUT"
+          [ -z "$NOTES" ] && NOTES="$(git log -1 --pretty=%B | grep -v -E "^(Co-Authored-By|Claude-Session):" | head -n 12)"
+          V="${{ steps.out.outputs.version }}"
+          gh release create "windows-v$V" out/* \
+            --target "${{ github.sha }}" \
+            --title "Holos for Windows $V" \
+            --notes "$NOTES" \
+            --latest=false

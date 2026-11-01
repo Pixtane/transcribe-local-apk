@@ -15,3 +15,7 @@ holos-upload.jks
 # Signing keys are never committed (CI reads them from secrets).
 *.jks
 *.keystore
+
+# Desktop build inputs fetched by scripts/fetch-sherpa-desktop.sh
+desktop/libs/
+desktop/native/
