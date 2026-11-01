@@ -18,9 +18,11 @@ PY="$(command -v python3 || command -v python)"
 
 DEST="$ROOT/desktop/native/$OS-x64"
 mkdir -p "$DEST"
-curl -fSL -o "$TMP/jni.tar.bz2" "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$VER/sherpa-onnx-v$VER-$OS-x64-jni.tar.bz2"
+# Release assets are named win-x64 / linux-x64.
+ASSET_OS=$([ "$OS" = windows ] && echo win || echo "$OS")
+curl -fSL -o "$TMP/jni.tar.bz2" "https://github.com/k2-fsa/sherpa-onnx/releases/download/v$VER/sherpa-onnx-v$VER-$ASSET_OS-x64-jni.tar.bz2"
 "$PY" -c "import sys, tarfile; tarfile.open(sys.argv[1], 'r:bz2').extractall(sys.argv[2])" "$TMP/jni.tar.bz2" "$TMP"
-LIB="$TMP/sherpa-onnx-v$VER-$OS-x64-jni/lib"
+LIB="$TMP/sherpa-onnx-v$VER-$ASSET_OS-x64-jni/lib"
 if [ "$OS" = windows ]; then
   cp "$LIB/onnxruntime.dll" "$LIB/onnxruntime_providers_shared.dll" "$LIB/sherpa-onnx-jni.dll" "$DEST/"
 else
