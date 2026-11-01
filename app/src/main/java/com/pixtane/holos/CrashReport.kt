@@ -52,6 +52,13 @@ object CrashReport {
         if (crashFile.exists()) {
             sb.append(crashFile.readText().take(6000))
             crashFile.delete()
+            // The same crash also appears in ApplicationExitInfo; mark it seen so it is not shown twice.
+            if (Build.VERSION.SDK_INT >= 30) {
+                val am = context.getSystemService(ActivityManager::class.java)
+                runCatching { am.getHistoricalProcessExitReasons(context.packageName, 0, 1).firstOrNull() }.getOrNull()?.let {
+                    context.getSharedPreferences("holos", Context.MODE_PRIVATE).edit().putLong("exit_seen", it.timestamp).apply()
+                }
+            }
         } else if (Build.VERSION.SDK_INT >= 30) {
             val am = context.getSystemService(ActivityManager::class.java)
             val info = runCatching { am.getHistoricalProcessExitReasons(context.packageName, 0, 1).firstOrNull() }.getOrNull()

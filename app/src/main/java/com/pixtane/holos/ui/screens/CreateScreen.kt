@@ -233,7 +233,7 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
                     colors = chipColors(),
                 )
             }
-            Stats(imported?.text ?: text)
+            Stats(imported?.text ?: text, pack)
 
             Spacer(Modifier.height(20.dp))
             SectionLabel(t("Language", "Мова"))
@@ -424,10 +424,14 @@ fun CreateScreen(nav: Nav, controller: MediaController?, initialText: String, in
 }
 
 @Composable
-private fun Stats(text: String) {
+private fun Stats(text: String, pack: com.pixtane.holos.tts.EnginePack) {
     val chars = text.length
     if (chars == 0) return
-    val cps = Prefs.measuredCps.takeIf { it > 0f } ?: DEFAULT_GEN_CPS
+    val cps = Prefs.cpsFor(pack.id).takeIf { it > 0f } ?: when (pack.kind) {
+        com.pixtane.holos.tts.EngineKind.STYLETTS2 -> 25f
+        com.pixtane.holos.tts.EngineKind.VITS -> 300f
+        else -> DEFAULT_GEN_CPS
+    }
     val audioMs = (chars / SPEECH_CHARS_PER_SEC * 1000).toLong()
     val genMs = (chars / cps * 1000).toLong()
     val pages = chars / CHARS_PER_PAGE

@@ -16,7 +16,7 @@ object VoicePreview {
 
     suspend fun play(lang: Lang, pack: EnginePack, sid: Int, steps: Int) {
         val pool = EnginePool.of(pack)
-        pool.configure(Prefs.workers, Prefs.threadsPerWorker)
+        pool.configure(Prefs.workers, maxOf(Prefs.threadsPerWorker, pack.minThreads))
         val samples = pool.withEngine { tts ->
             withContext(Dispatchers.Default) { pool.generate(tts, lang.prepare(lang.sample), lang.ttsCode, sid, steps) }
         }

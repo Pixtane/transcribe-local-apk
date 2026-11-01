@@ -9,6 +9,7 @@ import com.pixtane.holos.stepsCount
 import com.pixtane.holos.t
 import android.os.SystemClock
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -169,7 +170,21 @@ fun SettingsScreen(nav: Nav) {
             Spacer(Modifier.height(24.dp))
             SectionLabel(t("Speed test", "Тест швидкості"))
             Card {
-                val cps = Prefs.measuredCps
+                val engineChanges by ModelManager.changes.collectAsStateWithLifecycle()
+                val ready = remember(engineChanges) { ModelManager.readyPacks() }
+                var benchPackId by remember { mutableStateOf<String?>(null) }
+                val benchPack = ready.firstOrNull { it.id == benchPackId } ?: ready.firstOrNull()
+                if (ready.size > 1) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        for (p in ready) {
+                            SelectableCard(selected = p.id == benchPack?.id, onClick = { benchPackId = p.id; benchResult = null }) {
+                                Text(p.uiName(), style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+                val cps = benchPack?.let { Prefs.cpsFor(it.id) } ?: 0f
                 Text(
                     if (cps > 0) t("Last measured: ${cps.toInt()} characters/s → 10 pages in ~${formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong())}", "Останній вимір: ${cps.toInt()} символів/с → 10 сторінок за ~${formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong())}")
                     else t("Measure how fast this phone generates speech with the current settings.", "Виміряйте, як швидко цей телефон генерує мовлення з поточними налаштуваннями."),
@@ -182,7 +197,7 @@ fun SettingsScreen(nav: Nav) {
                 Spacer(Modifier.height(12.dp))
                 GradientButton(
                     text = if (benchRunning) t("Measuring…", "Вимірювання…") else t("Run speed test", "Запустити тест"),
-                    enabled = !benchRunning && !synth.running && model == ModelManager.State.Ready,
+                    enabled = !benchRunning && !synth.running && benchPack != null,
                     modifier = Modifier.fillMaxWidth(),
                     leading = {
                         if (benchRunning) CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
@@ -191,7 +206,7 @@ fun SettingsScreen(nav: Nav) {
                     onClick = {
                         benchRunning = true; benchResult = null
                         scope.launch {
-                            benchResult = try { runBenchmark(steps) } catch (e: Throwable) { t("Failed: ${e.message}", "Помилка: ${e.message}") }
+                            benchResult = try { runBenchmark(benchPack!!, steps) } catch (e: Throwable) { t("Failed: ${e.message}", "Помилка: ${e.message}") }
                             benchRunning = false
                         }
                     },
@@ -226,20 +241,21 @@ fun SettingsScreen(nav: Nav) {
 
 }
 
-private suspend fun runBenchmark(steps: Int): String = withContext(Dispatchers.Default) {
+private suspend fun runBenchmark(pack: EnginePack, steps: Int): String = withContext(Dispatchers.Default) {
     val workers = Prefs.workers
-    val pool = EnginePool.of(EngineCatalog.SUPERTONIC)
-    pool.configure(workers, Prefs.threadsPerWorker)
+    val pool = EnginePool.of(pack)
+    pool.configure(workers, maxOf(Prefs.threadsPerWorker, pack.minThreads))
+    val lang = if ("uk" in pack.languages) Lang.UK else Lang.of(pack.languages.first())
     val loadStart = SystemClock.elapsedRealtime()
     // Warm-up: make sure every engine is loaded so the timing below is pure generation.
     coroutineScope {
         (0 until workers).map {
-            async { pool.withEngine { tts -> pool.generate(tts, "Привіт.", Lang.UK.code, 0, 1) } }
+            async { pool.withEngine { tts -> pool.generate(tts, lang.prepare(lang.sample.take(20)), lang.ttsCode, 0, 1) } }
         }.awaitAll()
     }
     val loadMs = SystemClock.elapsedRealtime() - loadStart
     val next = AtomicInteger(0)
-    val texts = BENCH_TEXT + BENCH_TEXT
+    val texts = if (lang === Lang.UK) BENCH_TEXT else List(8) { lang.sample }
     val chars = texts.sumOf { it.length }
     val t0 = SystemClock.elapsedRealtime()
     var audioSamples = 0L
@@ -250,7 +266,7 @@ private suspend fun runBenchmark(steps: Int): String = withContext(Dispatchers.D
                 while (true) {
                     val i = next.getAndIncrement()
                     if (i >= texts.size) break
-                    local += pool.withEngine { tts -> pool.generate(tts, texts[i], Lang.UK.code, 0, steps).size }
+                    local += pool.withEngine { tts -> pool.generate(tts, lang.prepare(texts[i]), lang.ttsCode, 0, steps).size }
                 }
                 local
             }
@@ -258,12 +274,12 @@ private suspend fun runBenchmark(steps: Int): String = withContext(Dispatchers.D
     }
     val secs = (SystemClock.elapsedRealtime() - t0) / 1000f
     val cps = chars / secs
-    Prefs.measuredCps = cps
+    Prefs.setCpsFor(pack.id, cps)
     val audioSec = audioSamples / pool.pack.sampleRate.toFloat()
     String.format(
         Locale.US,
-        t("%d chars in %.1f s → %.0f chars/s (%.0f× real time). 10 pages ≈ %s. Engines loaded in %.1f s.",
-            "%d символів за %.1f с → %.0f симв/с (у %.0f× швидше за реальний час). 10 сторінок ≈ %s. Рушії завантажено за %.1f с."),
+        t("%d chars in %.1f s → %.0f chars/s (%.1f× real time). 10 pages ≈ %s. Engines loaded in %.1f s.",
+            "%d символів за %.1f с → %.0f симв/с (%.1f× від реального часу). 10 сторінок ≈ %s. Рушії завантажено за %.1f с."),
         chars, secs, cps, audioSec / secs, formatDuration((10 * CHARS_PER_PAGE / cps * 1000).toLong()), loadMs / 1000f,
     )
 }

@@ -149,6 +149,27 @@ class SegmentPlayer(private val context: Context) : SimpleBasePlayer(Looper.getM
         return Futures.immediateVoidFuture()
     }
 
+    // The playlist is always one recording: removing anything unloads it, adding/replacing loads
+    // the new item. (clearMediaItems() from the UI, e.g. when the playing recording is deleted.)
+    override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> {
+        setPlaying(false)
+        load(null, C.TIME_UNSET)
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleAddMediaItems(index: Int, mediaItems: List<MediaItem>): ListenableFuture<*> {
+        if (rec == null) mediaItems.firstOrNull()?.mediaId?.let { load(RecordingRepository.get(it), C.TIME_UNSET) }
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleReplaceMediaItems(fromIndex: Int, toIndex: Int, mediaItems: List<MediaItem>): ListenableFuture<*> {
+        load(mediaItems.firstOrNull()?.mediaId?.let { RecordingRepository.get(it) }, C.TIME_UNSET)
+        return Futures.immediateVoidFuture()
+    }
+
+    override fun handleMoveMediaItems(fromIndex: Int, toIndex: Int, newIndex: Int): ListenableFuture<*> =
+        Futures.immediateVoidFuture()
+
     override fun handlePrepare(): ListenableFuture<*> {
         stopped = false
         refresh()

@@ -48,7 +48,10 @@ object ModelManager {
     fun init(context: Context) {
         root = File(context.filesDir, "models")
         cacheDir = context.cacheDir
-        for (p in EngineCatalog.ALL) flow(p).value = if (isReady(p)) State.Ready else State.Missing
+        for (p in EngineCatalog.ALL) {
+            flow(p).value = if (isReady(p)) State.Ready else State.Missing
+            if (isOutdated(p)) download(p) // e.g. faster «Денис» model; unchanged files are kept
+        }
     }
 
     private fun flow(p: EnginePack) = states.getOrPut(p.id) { MutableStateFlow(State.Missing) }
@@ -60,7 +63,13 @@ object ModelManager {
     private fun installedName(name: String) = name.removeSuffix(".gz")
 
     fun isReady(p: EnginePack): Boolean =
-        File(dir(p), MARKER).exists() && p.files.keys.all { File(dir(p), installedName(it)).length() > 0 }
+        installedVersion(p) == p.version && p.files.keys.all { File(dir(p), installedName(it)).length() > 0 }
+
+    private fun installedVersion(p: EnginePack): String? =
+        File(dir(p), MARKER).takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { p.id }
+
+    /** Installed, but an older build of the pack: download only the files that changed. */
+    fun isOutdated(p: EnginePack): Boolean = installedVersion(p).let { it != null && it != p.version }
     fun readyPacks(): List<EnginePack> = EngineCatalog.ALL.filter { isReady(it) }
 
     fun download(p: EnginePack) {
@@ -74,7 +83,7 @@ object ModelManager {
                     downloadTarball(p, tar)
                 }
                 unpackGz(p)
-                File(dir(p), MARKER).writeText(p.id)
+                File(dir(p), MARKER).writeText(p.version)
                 st.value = State.Ready
                 changes.value++
             } catch (e: CancellationException) {

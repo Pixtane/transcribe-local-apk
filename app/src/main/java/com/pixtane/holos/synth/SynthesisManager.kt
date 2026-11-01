@@ -149,7 +149,7 @@ object SynthesisManager {
         val workers = Prefs.workers
         CrashReport.crumb("Start generating ${rec.id} with ${rec.engineId}: ${rec.n} sentences, $workers engines, ${rec.steps} steps")
         val pool = EnginePool.of(rec.pack)
-        pool.configure(workers, Prefs.threadsPerWorker)
+        pool.configure(workers, maxOf(Prefs.threadsPerWorker, rec.pack.minThreads))
         val inProgress = HashSet<Int>()
         val lock = Any()
         val chars = AtomicLong(0)
@@ -204,7 +204,7 @@ object SynthesisManager {
             }
             if (chars.get() > 300) {
                 val secs = (SystemClock.elapsedRealtime() - startedAt.get()) / 1000f
-                if (secs > 0) Prefs.measuredCps = chars.get() / secs
+                if (secs > 0) Prefs.setCpsFor(rec.engineId, chars.get() / secs)
             }
         } catch (e: CancellationException) {
             Log.i(TAG, "Generation of ${rec.id} paused")

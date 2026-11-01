@@ -28,6 +28,10 @@ data class EnginePack(
     val tarballUrl: String?,
     /** Recommended engine for these languages (shown as a badge). */
     val recommendedFor: Set<String> = emptySet(),
+    /** Written to the install marker; a different value means "update available". */
+    val version: String = id,
+    /** Minimum ONNX threads per engine (heavier models benefit from 2). */
+    val minThreads: Int = 1,
 ) {
     val hasQualitySteps get() = kind == EngineKind.SUPERTONIC
 }
@@ -109,7 +113,7 @@ object EngineCatalog {
         name = "Денис · StyleTTS2",
         kind = EngineKind.STYLETTS2,
         languages = listOf("uk"),
-        approxBytes = 113_017_350L,
+        approxBytes = 112_950_455L,
         sampleRate = 24_000,
         voices = listOf(Voice(0, "Д", "Денис")),
         license = "StyleTTS2 Ukrainian (patriotyk, MIT); stress dictionary lang-uk/ukrainian-word-stress (MIT), data from «Словники України»; IPA rules patriotyk/ipa-uk (MIT).",
@@ -119,11 +123,13 @@ object EngineCatalog {
             "tokens.txt" to 1_097L,
             "voices.bin" to 522_240L,
             "stress.sqlite.gz" to 16_320_444L,
-            "model.onnx" to 96_174_569L,
+            "model.onnx" to 96_106_674L,
         ),
-        fileBaseUrls = listOf("https://github.com/Pixtane/transcribe-local-apk/releases/download/voice-uk-denys-v1/"),
+        fileBaseUrls = listOf("https://github.com/Pixtane/transcribe-local-apk/releases/download/voice-uk-denys-v2/"),
         tarballUrl = null,
         recommendedFor = setOf("uk"),
+        version = "denys-uk-v2",
+        minThreads = 2,
     )
 
     /** Engines offered for download on first start. */
