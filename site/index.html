@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Holos — офлайн озвучення тексту</title>
+<meta name="description" content="Holos читає текст уголос природним голосом прямо на вашому телефоні чи комп'ютері, без інтернету. Українська з правильними наголосами, понад 30 мов, PDF, EPUB, MOBI.">
+<meta property="og:title" content="Holos — офлайн озвучення тексту">
+<meta property="og:description" content="Природні голоси, правильні наголоси, без інтернету. Android і Windows.">
+<meta property="og:image" content="/icon.png">
+<link rel="icon" href="/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0A0A10; --surface: #15151F; --surface-high: #1E1E2B; --outline: #2C2C3D;
+    --text: #F5F5F8; --muted: #9A9AAE; --faint: #5E5E73; --violet: #A78BFA; --pink: #F472B6; --green: #34D399;
+    --accent: linear-gradient(120deg, #8B5CF6, #D946EF 55%, #F472B6);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.55;
+    background-image: radial-gradient(1100px 520px at 50% -140px, #2A1659 0%, rgba(26,16,51,.55) 45%, transparent 75%);
+    background-repeat: no-repeat;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+  header.top { display: flex; align-items: center; gap: 10px; padding: 22px 0; }
+  header.top img { width: 34px; height: 34px; border-radius: 10px; }
+  header.top b { font-size: 19px; letter-spacing: -.3px; }
+
+  .hero { text-align: center; padding: 48px 0 28px; }
+  .hero img.logo { width: 104px; height: 104px; border-radius: 28px; box-shadow: 0 20px 60px rgba(139,92,246,.35); }
+  h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.08; letter-spacing: -1.4px; margin: 26px 0 14px; font-weight: 800; }
+  h1 .grad { background: var(--accent); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { font-size: clamp(16px, 2.2vw, 19px); color: var(--muted); max-width: 640px; margin: 0 auto; }
+
+  .downloads { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 40px auto 0; max-width: 760px; }
+  .dl {
+    display: flex; flex-direction: column; gap: 14px; padding: 22px; border-radius: 24px; text-decoration: none; color: var(--text);
+    background: var(--surface); border: 1px solid var(--outline); text-align: left; transition: transform .15s ease, border-color .15s ease;
+  }
+  .dl:hover { transform: translateY(-2px); border-color: #4b3a7a; }
+  .dl .head { display: flex; align-items: center; gap: 14px; }
+  .dl .ico { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: var(--surface-high); flex: none; }
+  .dl .ico svg { width: 28px; height: 28px; }
+  .dl h2 { font-size: 20px; margin: 0; letter-spacing: -.3px; }
+  .dl .sub { font-size: 13.5px; color: var(--muted); }
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 18px; border-radius: 16px;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 16px;
+  }
+  .btn svg { width: 20px; height: 20px; }
+  .dl .note { font-size: 12.5px; color: var(--faint); text-align: center; }
+  .dl.suggested { border-color: #6d4fc4; box-shadow: 0 0 0 1px #6d4fc4 inset; }
+  .tag { display: none; font-size: 11.5px; font-weight: 600; color: var(--green); background: rgba(52,211,153,.12); padding: 3px 9px; border-radius: 999px; margin-left: auto; }
+  .dl.suggested .tag { display: inline-block; }
+
+  section { padding: 56px 0 8px; }
+  h3.sec { font-size: 13px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; font-weight: 600; }
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .f { background: var(--surface); border-radius: 20px; padding: 20px; }
+  .f .em { font-size: 24px; }
+  .f h4 { margin: 10px 0 6px; font-size: 16.5px; letter-spacing: -.2px; }
+  .f p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  .howto { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .howto .f ol { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 14.5px; }
+  .howto .f li { margin: 4px 0; }
+
+  footer { padding: 56px 0 40px; color: var(--faint); font-size: 13.5px; text-align: center; }
+  footer a { color: var(--violet); text-decoration: none; }
+
+  @media (max-width: 760px) {
+    .downloads, .howto { grid-template-columns: 1fr; }
+    .features { grid-template-columns: 1fr; }
+    .hero { padding-top: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><img src="/icon.png" alt=""><b>Holos</b></header>
+
+  <div class="hero">
+    <img class="logo" src="/icon.png" alt="Holos">
+    <h1>Будь-який текст —<br><span class="grad">природним голосом</span></h1>
+    <p class="lead">Holos читає статті, конспекти й цілі книжки вголос прямо на вашому пристрої. Без інтернету, без акаунтів, з правильними українськими наголосами.</p>
+
+    <div class="downloads">
+      <a class="dl" id="dl-android" href="https://github.com/Pixtane/transcribe-local-apk/releases/latest/download/Holos.apk">
+        <div class="head">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="#3DDC84" aria-hidden="true"><path d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.86 3.22A11.5 11.5 0 0 0 12 8.1c-1.77 0-3.43.39-4.92 1.04L5.22 5.92a.38.38 0 0 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52zM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5z"/></svg></div>
+          <div><h2>Android</h2><div class="sub">Android 8.0+ · ~40 МБ</div></div>
+          <span class="tag">Для вашого пристрою</span>
+        </div>
+        <span class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Завантажити APK</span>
+        <span class="note">Після завантаження відкрийте файл і дозвольте встановлення з цього джерела. Далі застосунок оновлюється сам.</span>
+      </a>
+
+      <a class="dl" id="dl-windows" href="https://github.com/Pixtane/transcribe-local-apk/releases/download/windows-v1.0.5/Holos-Setup-1.0.5.msi">
+        <div class="head">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="#4CC2FF" aria-hidden="true"><path d="M3 5.1l7.4-1v7.2H3V5.1zm8.3-1.1L21 2.6v8.7h-9.7V4zM3 12.6h7.4v7.2L3 18.9v-6.3zm8.3 0H21v8.8l-9.7-1.4v-7.4z"/></svg></div>
+          <div><h2>Windows</h2><div class="sub">Windows 10 / 11 · <span id="win-ver">1.0.5</span> · ~140 МБ</div></div>
+          <span class="tag">Для вашого пристрою</span>
+        </div>
+        <span class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Завантажити інсталятор</span>
+        <span class="note">Права адміністратора не потрібні. Якщо Windows попередить про невідомого видавця — «Докладніше» → «Усе одно запустити».</span>
+      </a>
+    </div>
+  </div>
+
+  <section>
+    <h3 class="sec">Що вміє Holos</h3>
+    <div class="features">
+      <div class="f"><div class="em">🇺🇦</div><h4>Правильні наголоси</h4><p>Голос «Денис» ставить наголоси за словником української мови — Ки́їв, Євро́па, за́мок і замо́к як треба.</p></div>
+      <div class="f"><div class="em">📚</div><h4>PDF, EPUB, MOBI, TXT</h4><p>Імпортуйте книжку цілком: розділи визначаються автоматично, по них і по тексту можна шукати.</p></div>
+      <div class="f"><div class="em">🎧</div><h4>Як у музичному плеєрі</h4><p>Текст підсвічується по ходу читання, працює з вимкненим екраном, перемотка й швидкість до 2.5×.</p></div>
+      <div class="f"><div class="em">✈️</div><h4>Повністю офлайн</h4><p>Голосова модель завантажується один раз. Далі ваші тексти нікуди не надсилаються — ні реклами, ні акаунтів.</p></div>
+      <div class="f"><div class="em">🌍</div><h4>Понад 30 мов</h4><p>Українська, англійська, німецька, польська, французька та інші. Є навіть латина й церковнослов'янська.</p></div>
+      <div class="f"><div class="em">⚡</div><h4>Швидко й економно</h4><p>Слухати можна за кілька секунд, решта генерується у фоні. «Розумний» режим вмикається лише від зарядки.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h3 class="sec">Як почати</h3>
+    <div class="howto">
+      <div class="f"><h4>На телефоні</h4><ol>
+        <li>Завантажте APK і відкрийте його.</li>
+        <li>Дозвольте встановлення з браузера, якщо Android попросить.</li>
+        <li>У Holos натисніть «Завантажити Денис» — і вставте текст.</li>
+      </ol></div>
+      <div class="f"><h4>На комп'ютері</h4><ol>
+        <li>Завантажте інсталятор і запустіть його.</li>
+        <li>Відкрийте Holos з меню «Пуск».</li>
+        <li>Перетягніть файл у вікно або вставте текст. Можна експортувати в MP3.</li>
+      </ol></div>
+    </div>
+  </section>
+
+  <footer>
+    Holos · зроблено в Україні ·
+    <a href="https://github.com/Pixtane/transcribe-local-apk/releases" rel="noopener">усі версії</a> ·
+    <a href="https://github.com/Pixtane/transcribe-local-apk/blob/main/PRIVACY.md" rel="noopener">конфіденційність</a>
+  </footer>
+</div>
+
+<script>
+  // Highlight the download that matches this device.
+  (function () {
+    var ua = navigator.userAgent || "";
+    var id = /Android/i.test(ua) ? "dl-android" : /Windows/i.test(ua) ? "dl-windows" : null;
+    if (id) document.getElementById(id).classList.add("suggested");
+  })();
+
+  // Point the Windows button at the newest windows-v… release (falls back to the link above).
+  (function () {
+    fetch("https://api.github.com/repos/Pixtane/transcribe-local-apk/releases?per_page=30")
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        var best = null;
+        list.forEach(function (rel) {
+          if (rel.draft || rel.prerelease || !/^windows-v/.test(rel.tag_name)) return;
+          var n = parseInt(rel.tag_name.split(".").pop(), 10);
+          var msi = (rel.assets || []).filter(function (a) { return /\.msi$/.test(a.name); })[0];
+          if (msi && (!best || n > best.n)) best = { n: n, url: msi.browser_download_url, v: rel.tag_name.replace("windows-v", ""), size: msi.size };
+        });
+        if (!best) return;
+        document.getElementById("dl-windows").href = best.url;
+        document.getElementById("win-ver").textContent = best.v;
+      })
+      .catch(function () {});
+  })();
+</script>
+</body>
+</html>
